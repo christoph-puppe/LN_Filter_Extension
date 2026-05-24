@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>LN Filter — Optionen</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <style>
+    :root {
+      --bg-deep:        oklch(0.13 0.02 280);
+      --bg-elev-1:      oklch(0.95 0.005 280 / 0.04);
+      --bg-elev-2:      oklch(0.95 0.005 280 / 0.06);
+      --bg-elev-3:      oklch(0.95 0.005 280 / 0.08);
+      --border-1:       oklch(0.95 0.005 280 / 0.06);
+      --border-2:       oklch(0.95 0.005 280 / 0.10);
+      --text-primary:   oklch(0.95 0.005 280);
+      --text-secondary: oklch(0.75 0.02 280);
+      --text-tertiary:  oklch(0.65 0.02 280);
+      --text-quiet:     oklch(0.55 0.02 280);
+      --accent:         oklch(0.7 0.18 300);
+      --accent-soft:    oklch(0.7 0.18 300 / 0.15);
+      --accent-glow:    oklch(0.7 0.18 300 / 0.4);
+      --red:            oklch(0.65 0.2 25);
+      --amber:          oklch(0.8 0.15 80);
+      --green:          oklch(0.75 0.18 145);
+      --blue:           oklch(0.7 0.15 240);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      font: 14px/1.55 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+    }
+    ::selection { background: oklch(0.7 0.18 300 / 0.35); color: var(--text-primary); }
+
+    .blob {
+      position: fixed; border-radius: 50%; pointer-events: none; z-index: 0; filter: blur(60px);
+    }
+    .blob.b1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, oklch(0.4 0.18 300 / 0.5), transparent 70%);
+      top: -200px; left: -100px;
+    }
+    .blob.b2 {
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, oklch(0.4 0.16 240 / 0.4), transparent 70%);
+      bottom: -300px; right: -200px;
+      filter: blur(80px);
+    }
+    .noise {
+      position: fixed; inset: 0; opacity: 0.03; pointer-events: none; z-index: 0;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><filter id='n'><feTurbulence baseFrequency='0.9'/></filter><rect width='100' height='100' filter='url(%23n)'/></svg>");
+    }
+
+    /* ----- layout ----- */
+    .shell {
+      position: relative; z-index: 1;
+      display: grid;
+      grid-template-rows: 64px 1fr;
+      grid-template-columns: 240px 1fr;
+      grid-template-areas: "topbar topbar" "rail main";
+      min-height: 100vh;
+    }
+    .topbar {
+      grid-area: topbar;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px;
+      background: oklch(0.95 0.005 280 / 0.03);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-1);
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font: 600 14px/1 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.5px;
+    }
+    .brand .glyph { color: var(--accent); font-size: 18px; }
+    .meta {
+      display: flex; gap: 8px;
+      font: 500 11px/1 "JetBrains Mono", ui-monospace, monospace;
+      color: var(--text-tertiary);
+    }
+    .pill {
+      padding: 6px 10px;
+      background: var(--bg-elev-1);
+      border: 1px solid var(--border-1);
+      border-radius: 999px;
+    }
+    .pill.live { color: var(--green); border-color: oklch(0.7 0.18 145 / 0.3); }
+    .pill.warn { color: var(--amber); border-color: oklch(0.7 0.15 80 / 0.3); }
+
+    /* ----- rail ----- */
+    .rail {
+      grid-area: rail;
+      padding: 20px 14px;
+      border-right: 1px solid var(--border-1);
+      background: oklch(0.95 0.005 280 / 0.02);
+      backdrop-filter: blur(20px);
+    }
+    .rail-label {
+      font: 500 10px/1 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 1.5px;
+      color: var(--text-quiet);
+      padding: 0 12px;
+      margin-bottom: 8px;
+    }
+    .rail-nav { display: flex; flex-direction: column; gap: 2px; margin-bottom: 24px; }
+    .rail-nav a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-weight: 500;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .rail-nav a:hover { background: var(--bg-elev-2); color: var(--text-primary); }
+    .rail-nav a.active {
+      background: var(--accent-soft);
+      color: var(--text-primary);
+    }
+    .rail-nav a .ico {
+      color: var(--accent);
+      font-size: 14px;
+      width: 16px;
+      text-align: center;
+    }
+
+    /* ----- main ----- */
+    .main {
+      grid-area: main;
+      padding: 28px 36px 80px;
+      overflow-y: auto;
+      max-width: 980px;
+    }
+    section {
+      margin-bottom: 28px;
+      scroll-margin-top: 80px;
+    }
+    section h2 {
+      font: 600 11px/1 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      margin: 0 0 12px 4px;
+      text-transform: uppercase;
+    }
+    section h2 .glyph { margin-right: 8px; opacity: 0.7; }
+
+    .card {
+      background: var(--bg-elev-1);
+      border: 1px solid var(--border-1);
+      border-radius: 12px;
+      backdrop-filter: blur(20px);
+      padding: 20px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .card + .card { margin-top: 12px; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field-label {
+      font: 500 11px/1 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      display: flex; justify-content: space-between; align-items: baseline;
+    }
+    .field-help {
+      font-size: 12px;
+      color: var(--text-quiet);
+    }
+    .field-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .field .val {
+      color: var(--accent);
+      font-weight: 600;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+    }
+
+    input[type="text"], input[type="password"], input[type="number"], select, textarea {
+      width: 100%;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border-1);
+      color: var(--text-primary);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font: 13px/1.45 Inter, sans-serif;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    input[type="text"]:focus, input[type="password"]:focus,
+    input[type="number"]:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: var(--bg-elev-3);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    textarea {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      resize: vertical;
+      min-height: 140px;
+    }
+    textarea.prompt {
+      min-height: 280px;
+    }
+
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23a8a8c0' stroke-width='1.5'/></svg>");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      height: 4px;
+    }
+
+    .row-end { display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
+    .saved {
+      font: 10px/1 "JetBrains Mono", ui-monospace, monospace;
+      color: var(--green);
+      opacity: 0;
+      transition: opacity 180ms ease;
+      letter-spacing: 1px;
+    }
+    .saved.show { opacity: 1; }
+
+    button.btn {
+      padding: 8px 14px;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border-1);
+      color: var(--text-primary);
+      border-radius: 8px;
+      cursor: pointer;
+      font: 500 12px/1 Inter, sans-serif;
+      transition: background 120ms ease, transform 120ms ease;
+    }
+    button.btn:hover { background: var(--bg-elev-3); }
+    button.btn:active { transform: translateY(1px); }
+    button.btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 6px 20px var(--accent-glow);
+    }
+    button.btn.primary:hover { background: oklch(0.78 0.18 300); }
+    button.btn.ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    button.btn.danger {
+      color: var(--red);
+      border-color: oklch(0.65 0.2 25 / 0.4);
+    }
+    button.btn.danger:hover { background: oklch(0.65 0.2 25 / 0.12); }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font: 500 10px/1 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.5px;
+    }
+    .chip.warn {
+      background: oklch(0.8 0.15 80 / 0.18);
+      color: oklch(0.95 0.13 80);
+      border: 1px solid oklch(0.7 0.15 80 / 0.3);
+    }
+    .chip.warn[hidden] { display: none; }
+
+    /* ----- category grid ----- */
+    .cats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .cat {
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border-1);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .cat-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+    }
+    .cat-name {
+      font: 500 12px/1 "JetBrains Mono", ui-monospace, monospace;
+      text-transform: lowercase;
+      letter-spacing: 0.5px;
+    }
+    .cat-val {
+      font: 600 12px/1 "JetBrains Mono", ui-monospace, monospace;
+      color: var(--accent);
+    }
+
+    .api-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--bg-elev-2);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent-soft); }
+
+    /* responsive */
+    @media (max-width: 760px) {
+      .shell { grid-template-columns: 1fr; grid-template-areas: "topbar" "main"; }
+      .rail { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+  <div class="noise"></div>
+
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="glyph">◬</span>
+        <span>LN&nbsp;FILTER · OPTIONEN</span>
+      </div>
+      <div class="meta">
+        <span class="pill" id="version-pill">v0.0.0</span>
+        <span class="pill" id="key-pill">— kein Key</span>
+      </div>
+    </header>
+
+    <aside class="rail">
+      <div class="rail-label">EINSTELLUNGEN</div>
+      <nav class="rail-nav" id="nav">
+        <a href="#sec-model" class="active"><span class="ico">◇</span> Model &amp; API</a>
+        <a href="#sec-prefs"><span class="ico">◉</span> Interessen &amp; Dislikes</a>
+        <a href="#sec-cats"><span class="ico">▣</span> Kategorien</a>
+        <a href="#sec-prompt"><span class="ico">⌕</span> Prompt</a>
+        <a href="#sec-perf"><span class="ico">⬡</span> Performance &amp; Cache</a>
+      </nav>
+      <div class="rail-label">ÜBER</div>
+      <div style="padding: 8px 12px; font-size: 11px; color: var(--text-quiet); line-height: 1.6;">
+        Bewertet deinen LinkedIn-Feed mit Gemini nach deinen Vorgaben. Lokal, kein Server.
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <section id="sec-model">
+        <h2><span class="glyph">◇</span> Model &amp; API</h2>
+        <div class="card">
+          <div class="field">
+            <label class="field-label" for="api-key">GEMINI API-KEY</label>
+            <div class="api-row">
+              <input type="password" id="api-key" autocomplete="off" placeholder="AIza…" />
+              <button class="btn ghost" id="toggle-key" title="Anzeigen / Verbergen">👁</button>
+            </div>
+            <div class="field-help">
+              Hol dir einen kostenlosen Key bei
+              <a href="https://aistudio.google.com/apikey" target="_blank" style="color: var(--accent);">aistudio.google.com/apikey</a>.
+              Wird nur lokal in chrome.storage.local gespeichert.
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="model">MODEL</label>
+            <select id="model"></select>
+            <div class="field-help">3 Flash empfohlen. 3.1 Flash Lite ist noch günstiger, Pro ohne Free-Tier.</div>
+          </div>
+          <div class="row-end">
+            <span class="saved" id="saved-model">GESPEICHERT</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="sec-prefs">
+        <h2><span class="glyph">◉</span> Interessen &amp; Dislikes</h2>
+        <div class="card">
+          <div class="field">
+            <label class="field-label" for="interests">
+              <span>WAS WILLST DU SEHEN</span>
+              <button class="btn ghost" id="reset-interests" type="button">Reset</button>
+            </label>
+            <textarea id="interests" placeholder="- ..."></textarea>
+            <div class="field-help">Stichpunkte, je konkreter desto besser. Der Prompt referenziert das als {interests}.</div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="dislikes">
+              <span>WAS WILLST DU NICHT SEHEN</span>
+              <button class="btn ghost" id="reset-dislikes" type="button">Reset</button>
+            </label>
+            <textarea id="dislikes" placeholder="- ..."></textarea>
+            <div class="field-help">Posts mit klarem Match werden auf Score ≤ 20 gedrückt → versteckt / dimm.</div>
+          </div>
+          <div class="row-end">
+            <span class="saved" id="saved-prefs">GESPEICHERT</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="sec-cats">
+        <h2><span class="glyph">▣</span> Kategorien-Gewichte</h2>
+        <div class="card">
+          <div class="field-help" style="margin-bottom: 4px;">
+            Pro Kategorie 0 (egal) bis 100 (will ich sehen). Wird im Prompt als {categories} eingesetzt.
+          </div>
+          <div class="cats" id="cats"></div>
+          <div class="row-end">
+            <button class="btn ghost" id="reset-cats" type="button">Defaults wiederherstellen</button>
+            <span class="saved" id="saved-cats">GESPEICHERT</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="sec-prompt">
+        <h2><span class="glyph">⌕</span> Prompt-Template</h2>
+        <div class="card">
+          <div class="field">
+            <label class="field-label" for="prompt">
+              <span>VOLLSTÄNDIGER PROMPT</span>
+              <span style="display:flex; gap:8px; align-items:center;">
+                <span class="chip warn" id="ph-warn" hidden>FEHLENDE PLATZHALTER</span>
+                <button class="btn ghost" id="reset-prompt" type="button">Reset auf Default</button>
+              </span>
+            </label>
+            <textarea id="prompt" class="prompt"></textarea>
+            <div class="field-help">
+              Verwende die Platzhalter <code>{interests}</code>, <code>{dislikes}</code>, <code>{categories}</code>, <code>{author}</code>, <code>{text}</code>. Fehlende werden defensiv ans Ende angehängt.
+            </div>
+          </div>
+          <div class="row-end">
+            <span class="saved" id="saved-prompt">GESPEICHERT</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="sec-perf">
+        <h2><span class="glyph">⬡</span> Performance &amp; Cache</h2>
+        <div class="card">
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label" for="concurrency">CONCURRENCY <span class="val" id="concurrency-val">4</span></label>
+              <input type="range" id="concurrency" min="1" max="10" value="4" />
+              <div class="field-help">Parallele Gemini-Calls pro Tab. Höher = schneller, mehr 429-Risiko.</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="thinking">THINKING-LEVEL</label>
+              <select id="thinking">
+                <option value="minimal">minimal</option>
+                <option value="low">low (empfohlen)</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+              </select>
+              <div class="field-help">Für Bulk-Klassifizierung reicht low. Höher kostet 2–5× mehr Zeit.</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="retries">MAX RETRIES <span class="val" id="retries-val">2</span></label>
+              <input type="range" id="retries" min="0" max="5" value="2" />
+              <div class="field-help">Pro Call mit exponentiellem Backoff (500/1000/2000ms…).</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="lookahead">BULK LOOKAHEAD <span class="val" id="lookahead-val">25</span></label>
+              <input type="range" id="lookahead" min="0" max="100" step="5" value="25" />
+              <div class="field-help">Wie viele Posts nach den sichtbaren vorgeladen werden. 0 = nur sichtbar.</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="cache-ttl">CACHE-TTL (h) <span class="val" id="cache-ttl-val">24</span></label>
+              <input type="range" id="cache-ttl" min="0" max="168" value="24" />
+              <div class="field-help">Wie lange Score-Ergebnisse zwischengespeichert werden.</div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="threshold-default">DEFAULT SCHWELLE <span class="val" id="threshold-default-val">45</span></label>
+              <input type="range" id="threshold-default" min="0" max="100" value="45" />
+              <div class="field-help">Posts mit Score &lt; Schwelle werden versteckt / gedimmt.</div>
+            </div>
+          </div>
+          <div class="row-end">
+            <button class="btn danger" id="clear-cache">Cache leeren</button>
+            <button class="btn danger" id="reset-all">Alle Einstellungen zurücksetzen</button>
+            <span class="saved" id="saved-perf">GESPEICHERT</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

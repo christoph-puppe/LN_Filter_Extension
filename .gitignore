@@ -1,0 +1,24 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Build / packaging artifacts (Chrome Web Store .zip / .crt etc.)
+*.zip
+*.crx
+*.pem
+
+# Local dev / experiments
+node_modules/
+.env
+.env.local
+*.log
+
+# User-specific extension data (storage is via chrome.storage, not files,
+# but ignore any future dev dumps just in case)
+storage-dump.json
