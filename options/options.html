@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>LN Filter — Optionen</title>
+  <title>LN Filter — Options</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
   <style>
     :root {
@@ -332,26 +332,26 @@
     <header class="topbar">
       <div class="brand">
         <span class="glyph">◬</span>
-        <span>LN&nbsp;FILTER · OPTIONEN</span>
+        <span>LN&nbsp;FILTER · OPTIONS</span>
       </div>
       <div class="meta">
         <span class="pill" id="version-pill">v0.0.0</span>
-        <span class="pill" id="key-pill">— kein Key</span>
+        <span class="pill" id="key-pill">— no key</span>
       </div>
     </header>
 
     <aside class="rail">
-      <div class="rail-label">EINSTELLUNGEN</div>
+      <div class="rail-label">SETTINGS</div>
       <nav class="rail-nav" id="nav">
         <a href="#sec-model" class="active"><span class="ico">◇</span> Model &amp; API</a>
-        <a href="#sec-prefs"><span class="ico">◉</span> Interessen &amp; Dislikes</a>
-        <a href="#sec-cats"><span class="ico">▣</span> Kategorien</a>
+        <a href="#sec-prefs"><span class="ico">◉</span> Interests &amp; Dislikes</a>
+        <a href="#sec-cats"><span class="ico">▣</span> Categories</a>
         <a href="#sec-prompt"><span class="ico">⌕</span> Prompt</a>
         <a href="#sec-perf"><span class="ico">⬡</span> Performance &amp; Cache</a>
       </nav>
-      <div class="rail-label">ÜBER</div>
+      <div class="rail-label">ABOUT</div>
       <div style="padding: 8px 12px; font-size: 11px; color: var(--text-quiet); line-height: 1.6;">
-        Bewertet deinen LinkedIn-Feed mit Gemini nach deinen Vorgaben. Lokal, kein Server.
+        Rates your LinkedIn feed with Gemini based on your preferences. Local, no server.
       </div>
     </aside>
 
@@ -361,85 +361,85 @@
         <h2><span class="glyph">◇</span> Model &amp; API</h2>
         <div class="card">
           <div class="field">
-            <label class="field-label" for="api-key">GEMINI API-KEY</label>
+            <label class="field-label" for="api-key">GEMINI API KEY</label>
             <div class="api-row">
               <input type="password" id="api-key" autocomplete="off" placeholder="AIza…" />
-              <button class="btn ghost" id="toggle-key" title="Anzeigen / Verbergen">👁</button>
+              <button class="btn ghost" id="toggle-key" title="Show / Hide">👁</button>
             </div>
             <div class="field-help">
-              Hol dir einen kostenlosen Key bei
+              Get a free key at
               <a href="https://aistudio.google.com/apikey" target="_blank" style="color: var(--accent);">aistudio.google.com/apikey</a>.
-              Wird nur lokal in chrome.storage.local gespeichert.
+              Stored locally in chrome.storage.local only.
             </div>
           </div>
           <div class="field">
             <label class="field-label" for="model">MODEL</label>
             <select id="model"></select>
-            <div class="field-help">3 Flash empfohlen. 3.1 Flash Lite ist noch günstiger, Pro ohne Free-Tier.</div>
+            <div class="field-help">3 Flash recommended. 3.1 Flash Lite is even cheaper, Pro has no Free Tier.</div>
           </div>
           <div class="row-end">
-            <span class="saved" id="saved-model">GESPEICHERT</span>
+            <span class="saved" id="saved-model">SAVED</span>
           </div>
         </div>
       </section>
 
       <section id="sec-prefs">
-        <h2><span class="glyph">◉</span> Interessen &amp; Dislikes</h2>
+        <h2><span class="glyph">◉</span> Interests &amp; Dislikes</h2>
         <div class="card">
           <div class="field">
             <label class="field-label" for="interests">
-              <span>WAS WILLST DU SEHEN</span>
+              <span>WHAT YOU WANT TO SEE</span>
               <button class="btn ghost" id="reset-interests" type="button">Reset</button>
             </label>
             <textarea id="interests" placeholder="- ..."></textarea>
-            <div class="field-help">Stichpunkte, je konkreter desto besser. Der Prompt referenziert das als {interests}.</div>
+            <div class="field-help">Bullet points, the more specific the better. Referenced in the prompt as {interests}.</div>
           </div>
           <div class="field">
             <label class="field-label" for="dislikes">
-              <span>WAS WILLST DU NICHT SEHEN</span>
+              <span>WHAT YOU DON'T WANT TO SEE</span>
               <button class="btn ghost" id="reset-dislikes" type="button">Reset</button>
             </label>
             <textarea id="dislikes" placeholder="- ..."></textarea>
-            <div class="field-help">Posts mit klarem Match werden auf Score ≤ 20 gedrückt → versteckt / dimm.</div>
+            <div class="field-help">Posts with a clear match are pushed to score ≤ 20 → hidden / dimmed.</div>
           </div>
           <div class="row-end">
-            <span class="saved" id="saved-prefs">GESPEICHERT</span>
+            <span class="saved" id="saved-prefs">SAVED</span>
           </div>
         </div>
       </section>
 
       <section id="sec-cats">
-        <h2><span class="glyph">▣</span> Kategorien-Gewichte</h2>
+        <h2><span class="glyph">▣</span> Category Weights</h2>
         <div class="card">
           <div class="field-help" style="margin-bottom: 4px;">
-            Pro Kategorie 0 (egal) bis 100 (will ich sehen). Wird im Prompt als {categories} eingesetzt.
+            Per category 0 (don't care) to 100 (want to see). Inserted into the prompt as {categories}.
           </div>
           <div class="cats" id="cats"></div>
           <div class="row-end">
-            <button class="btn ghost" id="reset-cats" type="button">Defaults wiederherstellen</button>
-            <span class="saved" id="saved-cats">GESPEICHERT</span>
+            <button class="btn ghost" id="reset-cats" type="button">Restore Defaults</button>
+            <span class="saved" id="saved-cats">SAVED</span>
           </div>
         </div>
       </section>
 
       <section id="sec-prompt">
-        <h2><span class="glyph">⌕</span> Prompt-Template</h2>
+        <h2><span class="glyph">⌕</span> Prompt Template</h2>
         <div class="card">
           <div class="field">
             <label class="field-label" for="prompt">
-              <span>VOLLSTÄNDIGER PROMPT</span>
+              <span>FULL PROMPT</span>
               <span style="display:flex; gap:8px; align-items:center;">
-                <span class="chip warn" id="ph-warn" hidden>FEHLENDE PLATZHALTER</span>
-                <button class="btn ghost" id="reset-prompt" type="button">Reset auf Default</button>
+                <span class="chip warn" id="ph-warn" hidden>MISSING PLACEHOLDERS</span>
+                <button class="btn ghost" id="reset-prompt" type="button">Reset to Default</button>
               </span>
             </label>
             <textarea id="prompt" class="prompt"></textarea>
             <div class="field-help">
-              Verwende die Platzhalter <code>{interests}</code>, <code>{dislikes}</code>, <code>{categories}</code>, <code>{author}</code>, <code>{text}</code>, <code>{today}</code>. Fehlende werden defensiv ans Ende angehängt.
+              Use the placeholders <code>{interests}</code>, <code>{dislikes}</code>, <code>{categories}</code>, <code>{author}</code>, <code>{text}</code>, <code>{today}</code>. Missing ones are defensively appended at the end.
             </div>
           </div>
           <div class="row-end">
-            <span class="saved" id="saved-prompt">GESPEICHERT</span>
+            <span class="saved" id="saved-prompt">SAVED</span>
           </div>
         </div>
       </section>
@@ -451,55 +451,55 @@
             <div class="field">
               <label class="field-label" for="concurrency">CONCURRENCY <span class="val" id="concurrency-val">4</span></label>
               <input type="range" id="concurrency" min="1" max="10" value="4" />
-              <div class="field-help">Parallele Gemini-Calls pro Tab. Höher = schneller, mehr 429-Risiko.</div>
+              <div class="field-help">Parallel Gemini calls per tab. Higher = faster, more 429 risk.</div>
             </div>
             <div class="field">
               <label class="field-label" for="thinking">THINKING-LEVEL</label>
               <select id="thinking">
                 <option value="minimal">minimal</option>
-                <option value="low">low (empfohlen)</option>
+                <option value="low">low (recommended)</option>
                 <option value="medium">medium</option>
                 <option value="high">high</option>
               </select>
-              <div class="field-help">Für Bulk-Klassifizierung reicht low. Höher kostet 2–5× mehr Zeit.</div>
+              <div class="field-help">For bulk classification, low is sufficient. Higher costs 2–5× more time.</div>
             </div>
             <div class="field">
               <label class="field-label" for="retries">MAX RETRIES <span class="val" id="retries-val">2</span></label>
               <input type="range" id="retries" min="0" max="5" value="2" />
-              <div class="field-help">Pro Call mit exponentiellem Backoff (500/1000/2000ms…).</div>
+              <div class="field-help">Per call with exponential backoff (500/1000/2000ms…).</div>
             </div>
             <div class="field">
               <label class="field-label" for="lookahead">BULK LOOKAHEAD <span class="val" id="lookahead-val">25</span></label>
               <input type="range" id="lookahead" min="0" max="100" step="5" value="25" />
-              <div class="field-help">Wie viele Posts nach den sichtbaren vorgeladen werden. 0 = nur sichtbar.</div>
+              <div class="field-help">How many posts to pre-rate after visible ones. 0 = visible only.</div>
             </div>
             <div class="field">
               <label class="field-label" for="cache-ttl">CACHE-TTL (h) <span class="val" id="cache-ttl-val">24</span></label>
               <input type="range" id="cache-ttl" min="0" max="168" value="24" />
-              <div class="field-help">Wie lange Score-Ergebnisse zwischengespeichert werden.</div>
+              <div class="field-help">How long score results are cached.</div>
             </div>
             <div class="field">
-              <label class="field-label" for="threshold-default">DEFAULT SCHWELLE <span class="val" id="threshold-default-val">45</span></label>
+              <label class="field-label" for="threshold-default">DEFAULT THRESHOLD <span class="val" id="threshold-default-val">45</span></label>
               <input type="range" id="threshold-default" min="0" max="100" value="45" />
-              <div class="field-help">Posts mit Score &lt; Schwelle werden versteckt / gedimmt.</div>
+              <div class="field-help">Posts with score &lt; threshold are hidden / dimmed.</div>
             </div>
             <div class="field" style="grid-column: 1 / -1;">
               <label class="field-label" for="grounding">
                 <span>GOOGLE-SEARCH GROUNDING</span>
                 <label style="display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font: 500 11px/1 Inter, sans-serif; text-transform: none; letter-spacing: 0;">
-                  <input type="checkbox" id="grounding" /> aktivieren
+                  <input type="checkbox" id="grounding" /> enable
                 </label>
               </label>
               <div class="field-help">
-                Lässt Gemini per Google-Search die Aktualität von News-/Event-Posts verifizieren — Beiträge zu Themen älter als 7 Tage werden auf Score ≤ 25 gedrückt (Recency-Penalty im Default-Prompt). <br>
-                <strong>Trade-off:</strong> ~2–3× höhere Latenz und Kosten pro Call. Strict-Schema fällt weg, dafür übernimmt ein toleranter JSON-Parser. Für reine Klassifizierung ohne News-Fokus ausgelassen lassen.
+                Lets Gemini verify the timeliness of news/event posts via Google Search — posts about topics older than 7 days are pushed to score ≤ 25 (recency penalty in the default prompt). <br>
+                <strong>Trade-off:</strong> ~2–3× higher latency and cost per call. Strict schema is dropped in favor of a tolerant JSON parser. Leave off for pure classification without a news focus.
               </div>
             </div>
           </div>
           <div class="row-end">
-            <button class="btn danger" id="clear-cache">Cache leeren</button>
-            <button class="btn danger" id="reset-all">Alle Einstellungen zurücksetzen</button>
-            <span class="saved" id="saved-perf">GESPEICHERT</span>
+            <button class="btn danger" id="clear-cache">Clear Cache</button>
+            <button class="btn danger" id="reset-all">Reset All Settings</button>
+            <span class="saved" id="saved-perf">SAVED</span>
           </div>
         </div>
       </section>

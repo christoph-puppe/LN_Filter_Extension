@@ -21,10 +21,10 @@ async function refresh() {
   const alert = $("key-alert");
   if (!s.apiKey) {
     alert.className = "alert warn";
-    alert.textContent = "Kein API-Key — öffne Optionen und füge deinen Gemini-Key ein.";
+    alert.textContent = "No API key — open Options and add your Gemini key.";
   } else {
     alert.className = "alert ok";
-    alert.textContent = `API-Key gesetzt · Model ${s.model}`;
+    alert.textContent = `API key set · Model ${s.model}`;
   }
 
   refreshTabStats();

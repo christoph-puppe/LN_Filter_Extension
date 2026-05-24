@@ -1,99 +1,99 @@
 # LN Filter — LinkedIn Feed Re-Ranker
 
-Eine Chrome-Extension, die deinen LinkedIn-Feed mit **Gemini 3 Flash** nach deinen eigenen Vorgaben bewertet und neu sortiert / filtert. Lokal, kein Backend.
+A Chrome extension that replaces your LinkedIn feed algorithm: rates every post with **Gemini Flash** based on your own criteria and re-sorts / filters / dims accordingly. Fully local, no backend.
 
-## Was sie tut
+## What it does
 
-- Scannt jeden Beitrag im LinkedIn-Feed
-- Bewertet ihn 0–100 nach deinen **Interessen**, **Dislikes** und **Kategorien-Gewichten**
-- Hybrid-Strategie: sichtbare Beiträge zuerst, danach Vorab-Bulk für die nächsten N
-- Drei Modi: **Aus** · **Dim** (gedämpft anzeigen) · **Hide** (ausblenden)
-- Sortiert den Feed optional nach Score absteigend → echter Algo-Ersatz
-- Score-Badge auf jedem Post mit Hover-Tooltip (Kategorie + Kurzbegründung)
-- Cache (24h default), damit Refresh nichts erneut bewertet
-- Floating Overlay direkt auf LinkedIn für schnelles Toggling
+- Scans every post in the LinkedIn feed
+- Rates it 0–100 according to your **interests**, **dislikes**, and **category weights**
+- Hybrid strategy: visible posts first, then bulk lookahead for the next N posts
+- Three modes: **Off** · **Dim** (fade out low-scoring posts) · **Hide** (remove them entirely)
+- Optionally sorts the feed by score descending → genuine algorithm replacement
+- Score badge on every post with a hover tooltip (category + brief reason)
+- Cache (24 h default) so refreshing doesn't re-score posts you've already seen
+- Floating overlay directly on LinkedIn for quick toggling
 
 ## Installation
 
-1. Diesen Ordner irgendwo lokal liegen lassen.
-2. Chrome → `chrome://extensions` → **Entwicklermodus** oben rechts aktivieren.
-3. **„Entpackte Erweiterung laden"** → diesen Ordner auswählen.
-4. Auf das Puzzle-Icon in der Toolbar → LN Filter anpinnen.
-5. Klick auf das Icon → **Optionen** → **Gemini API-Key** einfügen.
-   Kostenloser Key: https://aistudio.google.com/apikey
-6. LinkedIn öffnen (`https://www.linkedin.com/feed/`) — das Overlay erscheint unten rechts.
+1. Keep this folder somewhere locally.
+2. Chrome → `chrome://extensions` → enable **Developer mode** (top right).
+3. Click **"Load unpacked"** → select this folder.
+4. Click the puzzle-piece icon in the toolbar → pin LN Filter.
+5. Click the icon → **Options** → paste your **Gemini API key**.
+   Free key: https://aistudio.google.com/apikey
+6. Open LinkedIn (`https://www.linkedin.com/feed/`) — the overlay appears bottom-right.
 
-## Bedienung
+## Usage
 
-**Im Popup (Toolbar-Icon):** Modus, Schwelle, Sortierung, „Neu bewerten", Link zu Optionen.
+**Popup (toolbar icon):** Mode, threshold, sorting, "Re-rate", link to Options.
 
-**Im Overlay auf LinkedIn:** dieselben Quick-Controls + Live-Status (bewertet / offen).
+**Overlay on LinkedIn:** Same quick controls + live status (rated / pending).
 
-**In den Optionen:**
-- **Model & API:** Key + Gemini-Variante. Default `gemini-3-flash-preview` (kostenlos im Free-Tier, schnell genug, gut genug).
-- **Interessen & Dislikes:** Freitext, je konkreter desto besser. Werden in den Prompt als `{interests}` / `{dislikes}` eingesetzt.
-- **Kategorien:** 16 Buckets mit Gewicht 0–100. Der Prompt zwingt das Model, eine davon zu wählen.
-- **Prompt:** kompletter Bewertungs-Prompt als Textarea, mit Reset-Knopf und Platzhalter-Validierung. Edit auf eigenes Risiko.
-- **Performance & Cache:** Concurrency (Default 4), Thinking-Level (`low` empfohlen für Bulk), Retries, Bulk-Lookahead, Cache-TTL, Default-Schwelle, **Google-Search Grounding** (optional — siehe unten).
+**Options page:**
+- **Model & API:** Key + Gemini variant. Default `gemini-3-flash-preview` (free tier, fast enough, good enough).
+- **Interests & Dislikes:** Free text — the more specific, the better. Injected into the prompt as `{interests}` / `{dislikes}`.
+- **Categories:** 16 buckets with weight 0–100. The prompt forces the model to pick exactly one.
+- **Prompt:** Full rating prompt as a textarea, with a Reset button and placeholder validation. Edit at your own risk.
+- **Performance & Cache:** Concurrency (default 4), thinking level (`low` recommended for bulk), retries, bulk lookahead, cache TTL, default threshold, **Google Search Grounding** (optional — see below).
 
-### Google-Search Grounding
+### Google Search Grounding
 
-Mit aktiviertem Grounding lässt Gemini per Live-Suche prüfen, ob ein Post sich auf ein aktuelles Ereignis bezieht. Der Default-Prompt enthält eine **Recency-Penalty**: Posts zu Themen / News älter als 7 Tage werden auf Score ≤ 25 gedrückt — egal ob das Thema dich interessiert. „Alt ist alt".
+With grounding enabled, Gemini uses live Google Search to check whether a post refers to a recent event. The default prompt contains a **recency penalty**: posts about topics / news older than 7 days are pushed to score ≤ 25 — regardless of whether the topic interests you. "Old is old."
 
-Kosten/Latenz: ~2–3× pro Call. Strict-Schema fällt mit Grounding weg (Schema + Search beißen sich im v1beta REST), stattdessen prompt-instruierter JSON-Output mit tolerantem Parser. Cache-Key berücksichtigt das Grounding-Flag, also schiebst du nichts Verschmutztes über die Schwelle wenn du toggelst.
+Cost / latency: ~2–3× per call. Strict schema is dropped when grounding is on (schema + Search conflict in v1beta REST); a tolerant JSON parser is used instead. The cache key includes the grounding flag, so toggling it never mixes scored results.
 
-Default: **aus**. An wenn du LinkedIn vor allem für News-Aktualität nutzt.
+Default: **off**. Turn on if you mainly use LinkedIn for news and current events.
 
-## Architektur
+## Architecture
 
 ```
 manifest.json              MV3
-background/service-worker  Gemini-Calls mit Pool + Retries + Score-Cache
-content/feed.js            MutationObserver + IntersectionObserver, Badge & Sort
-content/overlay.css        Badge + Floating-Widget Styles
-popup/                     Quick-Controls
-options/                   Vollständige Settings, Glassmorphic Deep Design
-shared/defaults.js         Default-Prompts, Default-Settings, Score-Schema
-shared/gemini.js           Gemini API-Wrapper mit `extractJson` + runPool
-shared/storage.js          chrome.storage Helper + Score-Cache (FNV-1a hash)
+background/service-worker  Gemini calls with pool + retries + score cache
+content/feed.js            MutationObserver + IntersectionObserver, badge & sort
+content/overlay.css        Badge + floating widget styles
+popup/                     Quick controls
+options/                   Full settings, glassmorphic deep design
+shared/defaults.js         Default prompt, default settings, score schema
+shared/gemini.js           Gemini API wrapper with extractJson + runPool
+shared/storage.js          chrome.storage helper + score cache (FNV-1a hash)
 icons/                     16 / 48 / 128 PNG
 ```
 
-Posts werden über `data-urn`-Attribut identifiziert (stabil), Fallback per Text-Hash. Sortierung läuft über CSS `order` auf einem flex-column gemachten Feed-Container — keine DOM-Manipulation, kein Layout-Thrash.
+Posts are identified via a FNV-1a hash of `author|text` (stable across sessions). Sorting uses CSS `order` on a flex-column feed container — no DOM reordering, no layout thrash.
 
-## Bekannte Einschränkungen
+## Known Limitations
 
-- LinkedIn renennt Klassen regelmäßig. Wenn nichts mehr passiert: in `content/feed.js` die `POST_SELECTORS` / `TEXT_SELECTORS` / `AUTHOR_SELECTORS` checken.
-- Reposts (Beiträge, die andere geteilt haben) werden anhand des äußeren Wrappers bewertet — der innere Original-Post-Text wird mitgenommen, der Repost-Kommentar ist Teil davon.
-- Sponsored / Promoted Posts werden nicht gesondert behandelt (laufen über das normale Scoring; landen wegen „promo"-Kategorie meist auf niedrigem Score und werden gefiltert).
-- Bilder / Videos werden nicht analysiert — nur Text + Author.
-- Bei 429 Rate-Limit: Concurrency runter, Cache greift bei Refresh.
+- LinkedIn renames its classes regularly. If nothing works: check `POST_SELECTORS` / `TEXT_SELECTORS` / `AUTHOR_SELECTORS` in `content/feed.js`.
+- Reposts (shares) are rated based on the outer wrapper — the inner original post text is included, and the repost comment is part of it.
+- Sponsored / Promoted posts are not handled separately (they go through normal scoring; they usually land in the "promo" category with a low score and get filtered).
+- Images / videos are not analyzed — only text + author.
+- On 429 rate-limit errors: lower concurrency; the cache handles refreshes.
 
-## Datenschutz
+## Privacy
 
-- API-Key liegt ausschließlich in `chrome.storage.local` deines Browsers.
-- Post-Texte + Author werden für den Bewertungs-Call an Gemini gesendet — sonst nirgendwo.
-- Keine Telemetrie. Keine Server-Komponente. Quellcode komplett lesbar.
+- The API key lives exclusively in `chrome.storage.local` in your browser.
+- Post text + author are sent to Gemini for the rating call — nowhere else.
+- No telemetry. No server component. Full source code readable.
 
 ## Tweaking
 
-Der Prompt ist der wichtigste Hebel. Die Default-Version optimiert auf Tech-Substanz; für andere Profile in den Optionen umschreiben (Reset-Knopf bringt das Default jederzeit zurück).
+The prompt is the most important lever. The default version optimizes for tech substance; rewrite it in Options for other profiles (the Reset button restores the default at any time).
 
-Für sehr restriktive Filter: Schwelle auf 60–70 + Modus „Hide". Für entspannten Überblick: Schwelle 35 + Modus „Dim" + Sortierung an.
+For very restrictive filtering: threshold 60–70 + mode "Hide". For a relaxed overview: threshold 35 + mode "Dim" + sorting on.
 
 ## Debugging
 
-In der DevTools-Console auf `linkedin.com`:
+In the DevTools console on `linkedin.com`:
 
-- `__lnfDiag()` — zeigt was die Extension gerade sieht: Feed-Container gefunden? Wie viele Kids, wie viele mit Text-Box, wie viele getrackt, Counters, letzter Error.
-- `__lnfDisable()` — Panic-Switch: entfernt alle DOM-Modifikationen und stoppt den Scanner.
+- `__lnfDiag()` — shows what the extension currently sees: feed container found? How many children, how many with a text box, how many tracked, counters, last error.
+- `__lnfDisable()` — panic switch: removes all DOM modifications and stops the scanner.
 
-Wenn LinkedIn seine Selektoren ändert und Posts nicht mehr erkannt werden, gibt `__lnfDiag()` die Antwort innerhalb von 5 Sekunden:
+If LinkedIn changes its selectors and posts are no longer detected, `__lnfDiag()` gives you the answer within 5 seconds:
 
-- `feed found? false` → der `[data-testid="mainFeed"]`-Marker existiert nicht mehr. Neuen Selektor in `content/feed.js` (`FEED_SELECTOR`) suchen.
-- `kids w/ text box: 0` → der `[data-testid="expandable-text-box"]`-Marker ist weg. Neuen Text-Marker in `TEXT_SELECTOR` setzen.
-- `findReturned > 0` aber `registerEmpty > 0` → `extractText`/`extractAuthor` finden nichts mehr — Autor-Selektoren prüfen.
+- `feed found? false` → the `[data-testid="mainFeed"]` marker no longer exists. Find a new selector in `content/feed.js` (`FEED_SELECTOR`).
+- `kids w/ text box: 0` → the `[data-testid="expandable-text-box"]` marker is gone. Set a new text marker in `TEXT_SELECTOR`.
+- `findReturned > 0` but `registerEmpty > 0` → `extractText` / `extractAuthor` no longer find anything — check the author selectors.
 
-## Lizenz
+## License
 
-Apache 2.0 — siehe [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](LICENSE).

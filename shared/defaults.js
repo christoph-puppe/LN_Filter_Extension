@@ -4,22 +4,22 @@
 export const DEFAULT_MODEL = "gemini-3-flash-preview";
 
 export const MODEL_OPTIONS = [
-  { id: "gemini-3.1-flash-lite-preview", label: "3.1 Flash Lite — günstig & schnell" },
-  { id: "gemini-3-flash-preview",        label: "3 Flash — empfohlen" },
-  { id: "gemini-3.1-pro-preview",        label: "3.1 Pro — beste Qualität, kein Free-Tier" }
+  { id: "gemini-3.1-flash-lite-preview", label: "3.1 Flash Lite — cheap & fast" },
+  { id: "gemini-3-flash-preview",        label: "3 Flash — recommended" },
+  { id: "gemini-3.1-pro-preview",        label: "3.1 Pro — best quality, no Free Tier" }
 ];
 
-export const DEFAULT_PROMPT = `Heute ist {today}.
+export const DEFAULT_PROMPT = `Today is {today}.
 
-Du bewertest einen LinkedIn-Beitrag im Auftrag eines Users mit klaren Vorlieben.
+You are rating a LinkedIn post on behalf of a user with clear preferences.
 
-USER-INTERESSEN (was der User SEHEN will):
+USER INTERESTS (what the user WANTS to see):
 {interests}
 
-USER-DISLIKES (was der User NICHT sehen will):
+USER DISLIKES (what the user does NOT want to see):
 {dislikes}
 
-KATEGORIEN-GEWICHTE (0 = egal, 100 = will der User sehr gerne sehen):
+CATEGORY WEIGHTS (0 = don't care, 100 = user really wants to see this):
 {categories}
 
 POST:
@@ -27,46 +27,46 @@ Author: {author}
 Text:
 {text}
 
-AUFGABE:
-1. Bestimme die primäre Kategorie aus dieser Liste:
+TASK:
+1. Determine the primary category from this list:
    tech, ai, business, career, leadership, marketing, sales, hr,
    politics, motivation, humor, personal, news, promo, recruiting, other
 
-2. Bewerte die zeitliche Aktualität (RECENCY-CHECK):
-   - Bezieht sich der Post auf ein konkretes Ereignis / News / Ankündigung / Release / Konferenz / Studie?
-   - WENN ja, ermittle das Ereignisdatum (aus dem Text oder — falls Google-Search verfügbar — per Recherche).
-   - Liegt das Ereignis MEHR ALS 7 TAGE vor {today}? → Recency-Penalty: Score ≤ 25.
-   - Liegt es innerhalb 7 Tage → keine Penalty.
-   - Ist der Post zeitlos (Konzept, Pattern, Erfahrungsbericht, Tutorial, persönliche Meinung ohne News-Bezug) → keine Recency-Penalty.
-   - Im Zweifel KEINE Penalty (nur wenn klar datierbar UND klar älter als 7 Tage).
+2. Evaluate timeliness (RECENCY CHECK):
+   - Does the post refer to a specific event / news / announcement / release / conference / study?
+   - IF yes, determine the event date (from the text or — if Google Search is available — via research).
+   - Is the event MORE THAN 7 DAYS before {today}? → Recency penalty: score ≤ 25.
+   - Within 7 days → no penalty.
+   - Is the post timeless (concept, pattern, practitioner report, tutorial, personal opinion without news reference) → no recency penalty.
+   - When in doubt, NO penalty (only when clearly datable AND clearly older than 7 days).
 
-3. Vergib einen Score 0–100 für die persönliche Relevanz für diesen User.
-   100 = sollte ganz oben stehen. 0 = sollte versteckt werden.
+3. Assign a score 0–100 for personal relevance to this user.
+   100 = should be at the top. 0 = should be hidden.
 
-4. Begründe knapp (max 14 Wörter). Falls Recency-Penalty erwähne "alt" oder das ungefähre Datum.
+4. Provide a brief reason (max 14 words). If recency penalty applies, mention "old" or the approximate date.
 
-WICHTIG:
-- Bei klarem Match mit Dislikes: Score ≤ 20.
-- Bei klarem Match mit Interests: Score ≥ 70.
-- Reine Werbung / Recruiting-Spam ohne thematische Tiefe: Score ≤ 30.
-- Bei sehr kurzen Posts (< 20 Wörter) ohne Substanz: Score ≤ 40.
-- "personal"-Posts (private Anekdoten, Babys, Hochzeiten) nur hoch wenn explizit gewünscht.
-- Recency-Penalty UNABHÄNGIG von Interest-Match: alt = alt, auch wenn das Thema passt.
+IMPORTANT:
+- Clear match with dislikes: score ≤ 20.
+- Clear match with interests: score ≥ 70.
+- Pure ads / recruiting spam without substantive content: score ≤ 30.
+- Very short posts (< 20 words) without substance: score ≤ 40.
+- "personal" posts (private anecdotes, babies, weddings) only high if explicitly desired.
+- Recency penalty is INDEPENDENT of interest match: old is old, even if the topic fits.
 
-OUTPUT-FORMAT (NUR JSON, keine Markdown-Fences):
-{"score": <0-100>, "category": "<eine der oben genannten>", "reason": "<max 14 Wörter, deutsch>"}`;
+OUTPUT FORMAT (JSON ONLY, no Markdown fences):
+{"score": <0-100>, "category": "<one of the above>", "reason": "<max 14 words, english>"}`;
 
-export const DEFAULT_INTERESTS = `- Konkrete technische Inhalte (AI/ML, Software-Engineering, Cloud-Architektur)
-- Tiefgehende Erfahrungsberichte von Praktikern, mit Zahlen und Konsequenzen
-- Strategische Analysen zu Tech-Industrie und Markttrends
-- Tools, Workflows, Pattern die ich morgen einsetzen kann`;
+export const DEFAULT_INTERESTS = `- Concrete technical content (AI/ML, software engineering, cloud architecture)
+- In-depth practitioner reports with numbers and real consequences
+- Strategic analysis of the tech industry and market trends
+- Tools, workflows, patterns I can use tomorrow`;
 
-export const DEFAULT_DISLIKES = `- Motivations-Sprüche, "X Lessons I learned from Y" ohne Substanz
-- Reine Werbung, Webinar-Promos, Cold Outreach
-- Politik und Wahlkampf
-- "Look at this incredible team / amazing journey" Selbstinszenierung
-- Babys, Hochzeiten, Marathon-Finisher-Posts
-- Karussell-Posts ohne Inhalt im ersten Slide`;
+export const DEFAULT_DISLIKES = `- Motivational quotes, "X Lessons I learned from Y" without substance
+- Pure ads, webinar promos, cold outreach
+- Politics and election campaigns
+- "Look at this incredible team / amazing journey" self-promotion
+- Babies, weddings, marathon-finisher posts
+- Carousel posts without content in the first slide`;
 
 export const DEFAULT_CATEGORIES = {
   tech: 90,

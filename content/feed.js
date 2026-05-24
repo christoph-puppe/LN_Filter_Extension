@@ -364,31 +364,31 @@
     overlayEl.innerHTML = `
       <div class="lnf-overlay-head">
         <span class="lnf-overlay-brand">◬ LN Filter</span>
-        <button class="lnf-overlay-min" title="Einklappen">−</button>
+        <button class="lnf-overlay-min" title="Collapse">−</button>
       </div>
       <div class="lnf-overlay-body">
         <div class="lnf-row">
-          <label class="lnf-label">Modus</label>
+          <label class="lnf-label">Mode</label>
           <div class="lnf-seg" role="tablist">
-            <button data-mode="off">Aus</button>
+            <button data-mode="off">Off</button>
             <button data-mode="dim">Dim</button>
             <button data-mode="hide">Hide</button>
           </div>
         </div>
         <div class="lnf-row">
-          <label class="lnf-label">Schwelle <span class="lnf-thr-val">45</span></label>
+          <label class="lnf-label">Threshold <span class="lnf-thr-val">45</span></label>
           <input type="range" class="lnf-thr" min="0" max="100" value="45" />
         </div>
         <div class="lnf-row">
-          <label class="lnf-label"><input type="checkbox" class="lnf-sort" checked /> Nach Score sortieren</label>
+          <label class="lnf-label"><input type="checkbox" class="lnf-sort" checked /> Sort by score</label>
         </div>
         <div class="lnf-status">
-          <span class="lnf-stat-rated">0 bewertet</span>
-          <span class="lnf-stat-pending">0 offen</span>
+          <span class="lnf-stat-rated">0 rated</span>
+          <span class="lnf-stat-pending">0 pending</span>
         </div>
         <div class="lnf-actions">
-          <button class="lnf-rerate">Neu bewerten</button>
-          <button class="lnf-options">Optionen</button>
+          <button class="lnf-rerate">Re-rate</button>
+          <button class="lnf-options">Options</button>
         </div>
       </div>
     `;
@@ -445,9 +445,9 @@
       else if (typeof rec.score === "number") rated++;
       else pending++;
     }
-    overlayEl.querySelector(".lnf-stat-rated").textContent = `${rated} bewertet`;
+    overlayEl.querySelector(".lnf-stat-rated").textContent = `${rated} rated`;
     overlayEl.querySelector(".lnf-stat-pending").textContent =
-      errors > 0 ? `${pending} offen · ${errors} ERR` : `${pending} offen`;
+      errors > 0 ? `${pending} pending · ${errors} ERR` : `${pending} pending`;
   }
 
   async function saveSetting(patch) {

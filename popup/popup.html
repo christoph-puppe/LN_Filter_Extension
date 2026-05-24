@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>LN Filter</title>
@@ -174,38 +174,38 @@
 
     <div class="card">
       <div>
-        <div class="label">MODUS</div>
+        <div class="label">MODE</div>
         <div class="seg" id="seg-mode">
-          <button data-mode="off">Aus</button>
+          <button data-mode="off">Off</button>
           <button data-mode="dim">Dim</button>
           <button data-mode="hide">Hide</button>
         </div>
       </div>
       <div>
-        <div class="label">SCHWELLE <span class="val" id="thr-val">45</span></div>
+        <div class="label">THRESHOLD <span class="val" id="thr-val">45</span></div>
         <input type="range" id="thr" min="0" max="100" value="45" />
       </div>
-      <label class="check"><input type="checkbox" id="sort" checked /> Feed nach Score sortieren</label>
-      <label class="check"><input type="checkbox" id="overlay" checked /> Overlay auf LinkedIn anzeigen</label>
+      <label class="check"><input type="checkbox" id="sort" checked /> Sort feed by score</label>
+      <label class="check"><input type="checkbox" id="overlay" checked /> Show overlay on LinkedIn</label>
     </div>
 
     <div class="card">
-      <div class="label">AKTUELLER TAB</div>
+      <div class="label">CURRENT TAB</div>
       <div class="status">
         <div class="stat">
           <span class="n" id="stat-rated">—</span>
-          <span class="lab">bewertet</span>
+          <span class="lab">rated</span>
         </div>
         <div class="stat">
           <span class="n" id="stat-pending">—</span>
-          <span class="lab">offen</span>
+          <span class="lab">pending</span>
         </div>
       </div>
     </div>
 
     <div class="actions">
-      <button class="btn" id="btn-rerate">Neu bewerten</button>
-      <button class="btn primary" id="btn-options">Optionen</button>
+      <button class="btn" id="btn-rerate">Re-rate</button>
+      <button class="btn primary" id="btn-options">Options</button>
     </div>
 
     <div class="foot">Gemini-Powered · made with Claude</div>

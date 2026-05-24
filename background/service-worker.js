@@ -37,7 +37,7 @@ async function processBatch(tabId) {
         chrome.tabs.sendMessage(tabId, {
           type: "SCORE_ERROR",
           postId: post.id,
-          error: "Kein Gemini API-Key konfiguriert (Options-Seite)"
+          error: "No Gemini API key configured (open Options page)"
         }).catch(() => {});
       }
       state.pending.clear();

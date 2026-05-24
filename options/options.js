@@ -85,7 +85,7 @@ function validatePromptPlaceholders() {
     warn.hidden = true;
   } else {
     warn.hidden = false;
-    warn.textContent = `FEHLT: ${missing.join(" ")}`;
+    warn.textContent = `MISSING: ${missing.join(" ")}`;
   }
 }
 
@@ -112,11 +112,11 @@ async function load() {
 
   const keyPill = $("key-pill");
   if (s.apiKey) {
-    keyPill.textContent = "● Key gesetzt";
+    keyPill.textContent = "● Key set";
     keyPill.classList.add("live");
     keyPill.classList.remove("warn");
   } else {
-    keyPill.textContent = "○ kein Key";
+    keyPill.textContent = "○ no key";
     keyPill.classList.add("warn");
     keyPill.classList.remove("live");
   }
@@ -148,7 +148,7 @@ async function load() {
 $("api-key").addEventListener("input", e => {
   const set = !!e.target.value.trim();
   const keyPill = $("key-pill");
-  keyPill.textContent = set ? "● Key gesetzt" : "○ kein Key";
+  keyPill.textContent = set ? "● Key set" : "○ no key";
   keyPill.classList.toggle("live", set);
   keyPill.classList.toggle("warn", !set);
   debouncedSave({ apiKey: e.target.value.trim() }, "saved-model");
@@ -201,12 +201,12 @@ $("thinking").addEventListener("change", e => save({ thinkingLevel: e.target.val
 $("grounding").addEventListener("change", e => save({ groundingEnabled: e.target.checked }, "saved-perf"));
 
 $("clear-cache").addEventListener("click", async () => {
-  if (!confirm("Score-Cache wirklich leeren? Alle bekannten Posts werden bei nächster Sichtung neu bewertet.")) return;
+  if (!confirm("Really clear the score cache? All known posts will be re-rated on next visit.")) return;
   await clearCache();
   flash("saved-perf");
 });
 $("reset-all").addEventListener("click", async () => {
-  if (!confirm("Wirklich alle Einstellungen zurücksetzen? API-Key wird ebenfalls gelöscht.")) return;
+  if (!confirm("Really reset all settings? The API key will also be deleted.")) return;
   await resetSettings();
   await clearCache();
   await load();
