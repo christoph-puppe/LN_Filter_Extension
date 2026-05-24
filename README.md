@@ -34,7 +34,15 @@ Eine Chrome-Extension, die deinen LinkedIn-Feed mit **Gemini 3 Flash** nach dein
 - **Interessen & Dislikes:** Freitext, je konkreter desto besser. Werden in den Prompt als `{interests}` / `{dislikes}` eingesetzt.
 - **Kategorien:** 16 Buckets mit Gewicht 0–100. Der Prompt zwingt das Model, eine davon zu wählen.
 - **Prompt:** kompletter Bewertungs-Prompt als Textarea, mit Reset-Knopf und Platzhalter-Validierung. Edit auf eigenes Risiko.
-- **Performance & Cache:** Concurrency (Default 4), Thinking-Level (`low` empfohlen für Bulk), Retries, Bulk-Lookahead, Cache-TTL, Default-Schwelle.
+- **Performance & Cache:** Concurrency (Default 4), Thinking-Level (`low` empfohlen für Bulk), Retries, Bulk-Lookahead, Cache-TTL, Default-Schwelle, **Google-Search Grounding** (optional — siehe unten).
+
+### Google-Search Grounding
+
+Mit aktiviertem Grounding lässt Gemini per Live-Suche prüfen, ob ein Post sich auf ein aktuelles Ereignis bezieht. Der Default-Prompt enthält eine **Recency-Penalty**: Posts zu Themen / News älter als 7 Tage werden auf Score ≤ 25 gedrückt — egal ob das Thema dich interessiert. „Alt ist alt".
+
+Kosten/Latenz: ~2–3× pro Call. Strict-Schema fällt mit Grounding weg (Schema + Search beißen sich im v1beta REST), stattdessen prompt-instruierter JSON-Output mit tolerantem Parser. Cache-Key berücksichtigt das Grounding-Flag, also schiebst du nichts Verschmutztes über die Schwelle wenn du toggelst.
+
+Default: **aus**. An wenn du LinkedIn vor allem für News-Aktualität nutzt.
 
 ## Architektur
 

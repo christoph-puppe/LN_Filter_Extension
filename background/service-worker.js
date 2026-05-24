@@ -52,7 +52,11 @@ async function processBatch(tabId) {
 
     const tasks = batch.map(({ post }) => async () => {
       const promptStr = buildPrompt(settings.prompt, settings, post);
-      const cacheKey = hashString(`${settings.model}|${promptStr}`);
+      // Cache key includes grounding flag — grounded vs ungrounded produce
+      // semantically different scores even for the same prompt.
+      const cacheKey = hashString(
+        `${settings.model}|g${settings.groundingEnabled ? 1 : 0}|${promptStr}`
+      );
 
       // Cache check — saves API calls on re-renders of the same post.
       const cached = await readCached(cacheKey, settings.cacheTtlHours);
@@ -74,7 +78,8 @@ async function processBatch(tabId) {
           model: settings.model,
           prompt: promptStr,
           thinkingLevel: settings.thinkingLevel,
-          retries: settings.retries
+          retries: settings.retries,
+          grounding: !!settings.groundingEnabled
         });
         await writeCached(cacheKey, {
           score: result.score,

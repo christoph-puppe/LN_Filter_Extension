@@ -435,7 +435,7 @@
             </label>
             <textarea id="prompt" class="prompt"></textarea>
             <div class="field-help">
-              Verwende die Platzhalter <code>{interests}</code>, <code>{dislikes}</code>, <code>{categories}</code>, <code>{author}</code>, <code>{text}</code>. Fehlende werden defensiv ans Ende angehängt.
+              Verwende die Platzhalter <code>{interests}</code>, <code>{dislikes}</code>, <code>{categories}</code>, <code>{author}</code>, <code>{text}</code>, <code>{today}</code>. Fehlende werden defensiv ans Ende angehängt.
             </div>
           </div>
           <div class="row-end">
@@ -482,6 +482,18 @@
               <label class="field-label" for="threshold-default">DEFAULT SCHWELLE <span class="val" id="threshold-default-val">45</span></label>
               <input type="range" id="threshold-default" min="0" max="100" value="45" />
               <div class="field-help">Posts mit Score &lt; Schwelle werden versteckt / gedimmt.</div>
+            </div>
+            <div class="field" style="grid-column: 1 / -1;">
+              <label class="field-label" for="grounding">
+                <span>GOOGLE-SEARCH GROUNDING</span>
+                <label style="display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font: 500 11px/1 Inter, sans-serif; text-transform: none; letter-spacing: 0;">
+                  <input type="checkbox" id="grounding" /> aktivieren
+                </label>
+              </label>
+              <div class="field-help">
+                Lässt Gemini per Google-Search die Aktualität von News-/Event-Posts verifizieren — Beiträge zu Themen älter als 7 Tage werden auf Score ≤ 25 gedrückt (Recency-Penalty im Default-Prompt). <br>
+                <strong>Trade-off:</strong> ~2–3× höhere Latenz und Kosten pro Call. Strict-Schema fällt weg, dafür übernimmt ein toleranter JSON-Parser. Für reine Klassifizierung ohne News-Fokus ausgelassen lassen.
+              </div>
             </div>
           </div>
           <div class="row-end">

@@ -76,7 +76,7 @@ function populateCategories(values) {
 }
 
 // ----- prompt placeholder validation -----
-const REQUIRED_PLACEHOLDERS = ["{interests}", "{dislikes}", "{categories}", "{author}", "{text}"];
+const REQUIRED_PLACEHOLDERS = ["{interests}", "{dislikes}", "{categories}", "{author}", "{text}", "{today}"];
 function validatePromptPlaceholders() {
   const txt = $("prompt").value;
   const missing = REQUIRED_PLACEHOLDERS.filter(p => !txt.includes(p));
@@ -141,6 +141,7 @@ async function load() {
   $("cache-ttl-val").textContent = s.cacheTtlHours;
   $("threshold-default").value = s.threshold;
   $("threshold-default-val").textContent = s.threshold;
+  $("grounding").checked = !!s.groundingEnabled;
 }
 
 // ----- wire events -----
@@ -197,6 +198,7 @@ wireRange("lookahead", "bulkLookahead", "lookahead-val");
 wireRange("cache-ttl", "cacheTtlHours", "cache-ttl-val");
 wireRange("threshold-default", "threshold", "threshold-default-val");
 $("thinking").addEventListener("change", e => save({ thinkingLevel: e.target.value }, "saved-perf"));
+$("grounding").addEventListener("change", e => save({ groundingEnabled: e.target.checked }, "saved-perf"));
 
 $("clear-cache").addEventListener("click", async () => {
   if (!confirm("Score-Cache wirklich leeren? Alle bekannten Posts werden bei nächster Sichtung neu bewertet.")) return;

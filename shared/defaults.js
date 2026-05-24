@@ -9,7 +9,9 @@ export const MODEL_OPTIONS = [
   { id: "gemini-3.1-pro-preview",        label: "3.1 Pro — beste Qualität, kein Free-Tier" }
 ];
 
-export const DEFAULT_PROMPT = `Du bewertest einen LinkedIn-Beitrag im Auftrag eines Users mit klaren Vorlieben.
+export const DEFAULT_PROMPT = `Heute ist {today}.
+
+Du bewertest einen LinkedIn-Beitrag im Auftrag eines Users mit klaren Vorlieben.
 
 USER-INTERESSEN (was der User SEHEN will):
 {interests}
@@ -29,16 +31,30 @@ AUFGABE:
 1. Bestimme die primäre Kategorie aus dieser Liste:
    tech, ai, business, career, leadership, marketing, sales, hr,
    politics, motivation, humor, personal, news, promo, recruiting, other
-2. Vergib einen Score 0–100 für die persönliche Relevanz für diesen User.
+
+2. Bewerte die zeitliche Aktualität (RECENCY-CHECK):
+   - Bezieht sich der Post auf ein konkretes Ereignis / News / Ankündigung / Release / Konferenz / Studie?
+   - WENN ja, ermittle das Ereignisdatum (aus dem Text oder — falls Google-Search verfügbar — per Recherche).
+   - Liegt das Ereignis MEHR ALS 7 TAGE vor {today}? → Recency-Penalty: Score ≤ 25.
+   - Liegt es innerhalb 7 Tage → keine Penalty.
+   - Ist der Post zeitlos (Konzept, Pattern, Erfahrungsbericht, Tutorial, persönliche Meinung ohne News-Bezug) → keine Recency-Penalty.
+   - Im Zweifel KEINE Penalty (nur wenn klar datierbar UND klar älter als 7 Tage).
+
+3. Vergib einen Score 0–100 für die persönliche Relevanz für diesen User.
    100 = sollte ganz oben stehen. 0 = sollte versteckt werden.
-3. Begründe knapp (max 12 Wörter).
+
+4. Begründe knapp (max 14 Wörter). Falls Recency-Penalty erwähne "alt" oder das ungefähre Datum.
 
 WICHTIG:
 - Bei klarem Match mit Dislikes: Score ≤ 20.
 - Bei klarem Match mit Interests: Score ≥ 70.
 - Reine Werbung / Recruiting-Spam ohne thematische Tiefe: Score ≤ 30.
 - Bei sehr kurzen Posts (< 20 Wörter) ohne Substanz: Score ≤ 40.
-- "personal"-Posts (private Anekdoten, Babys, Hochzeiten) nur hoch wenn explizit gewünscht.`;
+- "personal"-Posts (private Anekdoten, Babys, Hochzeiten) nur hoch wenn explizit gewünscht.
+- Recency-Penalty UNABHÄNGIG von Interest-Match: alt = alt, auch wenn das Thema passt.
+
+OUTPUT-FORMAT (NUR JSON, keine Markdown-Fences):
+{"score": <0-100>, "category": "<eine der oben genannten>", "reason": "<max 14 Wörter, deutsch>"}`;
 
 export const DEFAULT_INTERESTS = `- Konkrete technische Inhalte (AI/ML, Software-Engineering, Cloud-Architektur)
 - Tiefgehende Erfahrungsberichte von Praktikern, mit Zahlen und Konsequenzen
@@ -87,7 +103,8 @@ export const DEFAULT_SETTINGS = {
   retries: 2,
   bulkLookahead: 25,        // after visible items rated, pre-rate next N
   cacheTtlHours: 24,
-  overlayEnabled: true
+  overlayEnabled: true,
+  groundingEnabled: false   // Google Search grounding for recency / fact checks
 };
 
 export const SCORE_SCHEMA = {
