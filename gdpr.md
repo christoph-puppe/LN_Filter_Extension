@@ -40,6 +40,3 @@ We reserve the right to modify this Privacy Policy to ensure it always complies 
 
 Last updated: May 2 2026
 
----
-
-*Legal Disclaimer: This text is a custom draft based on your technical implementation. Since legal requirements can change (especially when publishing in app stores), this does not replace professional legal advice.*
