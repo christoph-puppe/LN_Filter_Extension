@@ -1,7 +1,3 @@
-Here is the English translation of the Privacy Policy for your extension.
-
----
-
 # Privacy Policy for "LN Filter — LinkedIn Feed Re-Ranker"
 
 **1. Introduction and Data Controller**
