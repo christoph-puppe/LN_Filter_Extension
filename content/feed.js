@@ -321,10 +321,18 @@
 
   function startScanner() {
     if (state.scanInterval) return;
+    let tick = 0;
     state.scanInterval = setInterval(() => {
-      if (!state.dirty) return;
-      state.dirty = false;
-      scan();
+      tick++;
+      // Heartbeat: scan unconditionally every ~1.5s even with no observed
+      // mutations. LinkedIn swaps the whole feed container on SPA route changes
+      // (e.g. open a post detail and return); our observer is then watching a
+      // detached node and never fires, so without this the feed is never
+      // re-detected. scan() re-queries mainFeed and re-roots the observer.
+      if (state.dirty || tick % 6 === 0) {
+        state.dirty = false;
+        scan();
+      }
     }, 250);
   }
 
@@ -696,11 +704,21 @@
   // inner <main> scroller, whose scroll events don't bubble to window).
   function onScroll() { schedulePump(); }
 
+  // SPA navigation (open a post detail and return, back/forward, in-app routing)
+  // swaps the feed container without a reload. Re-scan now and again shortly after,
+  // since LinkedIn rebuilds the feed asynchronously over a few hundred ms.
+  function kickRescan() {
+    requestScan();
+    schedulePump();
+    setTimeout(() => { requestScan(); schedulePump(); }, 350);
+    setTimeout(() => { requestScan(); schedulePump(); }, 1000);
+  }
+
   // Reload resilience: LinkedIn auto-refreshes the feed on tab re-focus and on its
   // own idle timer. Force a re-scan + re-apply the moment we become visible so the
   // re-rank snaps back (scores come from the SW cache → no new API calls).
   function onRefocus() {
-    if (document.visibilityState !== "hidden") { requestScan(); schedulePump(); }
+    if (document.visibilityState !== "hidden") kickRescan();
   }
 
   async function boot() {
@@ -712,9 +730,11 @@
     window.addEventListener("scroll", onScroll, { passive: true, capture: true });
     document.addEventListener("visibilitychange", onRefocus);
     window.addEventListener("focus", onRefocus);
+    window.addEventListener("popstate", kickRescan);   // back/forward (e.g. leaving a post detail)
+    window.addEventListener("hashchange", kickRescan);
     markDirty();
     schedulePump();
-    log("v0.7 booted on", location.pathname, "— __lnfDiag() / __lnfDisable()");
+    log("v0.7.1 booted on", location.pathname, "— __lnfDiag() / __lnfDisable()");
   }
 
   if (document.readyState === "loading") {
