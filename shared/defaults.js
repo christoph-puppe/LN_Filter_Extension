@@ -109,7 +109,10 @@ export const DEFAULT_SETTINGS = {
   gateBudget: 12,           // max posts held hidden-until-ranked at once (HIDE mode)
   gateTimeoutMs: 6000,      // force-reveal a held post not ranked within this time
   cooldownMs: 30000,        // global pause after a 429 rate-limit
-  maxScoresPerMin: 0        // optional soft cap on API calls per minute (0 = off)
+  maxScoresPerMin: 0,       // optional soft cap on API calls per minute (0 = off)
+  // v0.7 — experimental: gate LinkedIn's feed pagination until the current
+  // batch is ranked, pacing the load cascade at the source. Default off.
+  paceLoading: false
 };
 
 export const SCORE_SCHEMA = {

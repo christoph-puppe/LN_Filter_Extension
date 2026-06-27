@@ -9,6 +9,38 @@
   if (window.__LN_FILTER_BRIDGE__) return;
   window.__LN_FILTER_BRIDGE__ = true;
 
+  // ----- load pacing (v0.7, opt-in) -----
+  // LinkedIn loads more feed via POST .../rsc-action/actions/pagination. Gate that
+  // request behind a DOM flag the isolated-world content script controls, so the
+  // next batch only loads once the current one is ranked. MAIN world has no chrome.*
+  // — we coordinate purely through a <html data-lnf-loadgate> attribute. This patch
+  // is PASSIVE: it only delays when the content script sets the flag to "block",
+  // and always fails open after MAX_HOLD_MS so the feed can never hang.
+  const PAGINATION_RE = /rsc-action\/actions\/pagination/;
+  const MAX_HOLD_MS = 4000;
+  const origFetch = window.fetch;
+  if (typeof origFetch === "function") {
+    window.fetch = function (input, init) {
+      const url = typeof input === "string" ? input : (input && input.url) || "";
+      const method = ((init && init.method) || (input && input.method) || "GET").toUpperCase();
+      if (method === "POST" && PAGINATION_RE.test(url)) {
+        const self = this, args = arguments;
+        return new Promise((resolve, reject) => {
+          const start = Date.now();
+          (function waitGate() {
+            const blocked = document.documentElement.getAttribute("data-lnf-loadgate") === "block";
+            if (!blocked || Date.now() - start > MAX_HOLD_MS) {
+              origFetch.apply(self, args).then(resolve, reject);
+            } else {
+              setTimeout(waitGate, 150);
+            }
+          })();
+        });
+      }
+      return origFetch.apply(this, arguments);
+    };
+  }
+
   const REQUEST = "__lnfRequest";
   const REPLY = "__lnfReply";
 

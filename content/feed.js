@@ -483,6 +483,9 @@
         <div class="lnf-row">
           <label class="lnf-label"><input type="checkbox" class="lnf-sort" checked /> Sort by score</label>
         </div>
+        <div class="lnf-row">
+          <label class="lnf-label"><input type="checkbox" class="lnf-pace" /> Pace loading (exp)</label>
+        </div>
         <div class="lnf-status">
           <span class="lnf-stat-rated">0 rated</span>
           <span class="lnf-stat-pending">0 pending</span>
@@ -509,6 +512,8 @@
     thr.addEventListener("change", () => saveSetting({ threshold: Number(thr.value) }));
     overlayEl.querySelector(".lnf-sort").addEventListener("change", e =>
       saveSetting({ sortByScore: e.target.checked }));
+    overlayEl.querySelector(".lnf-pace").addEventListener("change", e =>
+      saveSetting({ paceLoading: e.target.checked }));
     overlayEl.querySelector(".lnf-rerate").addEventListener("click", async () => {
       await chrome.runtime.sendMessage({ type: "CLEAR_CACHE" });
       for (const rec of state.posts.values()) {
@@ -530,10 +535,27 @@
     overlayEl.querySelector(".lnf-thr").value = state.settings.threshold;
     overlayEl.querySelector(".lnf-thr-val").textContent = state.settings.threshold;
     overlayEl.querySelector(".lnf-sort").checked = state.settings.sortByScore !== false;
+    overlayEl.querySelector(".lnf-pace").checked = state.settings.paceLoading === true;
     overlayEl.style.display = state.settings.overlayEnabled === false ? "none" : "";
+    updateLoadGate();
+  }
+
+  // v0.7 load pacing: publish a gate flag the MAIN-world fetch patch reads.
+  // "block" = still ranking a backlog → hold LinkedIn's next pagination fetch;
+  // "allow"/absent = let it through. Passive unless paceLoading is enabled.
+  function updateLoadGate() {
+    const root = document.documentElement;
+    if (state.settings?.paceLoading !== true) { root.removeAttribute("data-lnf-loadgate"); return; }
+    let pending = 0;
+    for (const rec of state.posts.values()) {
+      if (!rec.error && typeof rec.score !== "number") pending++;
+    }
+    const backlog = gatedSet.size + pending;
+    root.setAttribute("data-lnf-loadgate", backlog > (state.settings?.gateBudget ?? 12) ? "block" : "allow");
   }
 
   function updateOverlayStatus() {
+    updateLoadGate();
     if (!overlayEl) return;
     let rated = 0, pending = 0, errors = 0;
     for (const rec of state.posts.values()) {
@@ -573,6 +595,7 @@
       el.removeAttribute("data-lnf-score");
       el.removeAttribute("data-lnf-state");
     });
+    document.documentElement.removeAttribute("data-lnf-loadgate");
     if (overlayEl) overlayEl.remove();
     log("disabled — all DOM mods reverted");
   };
@@ -656,6 +679,7 @@
       overlayEnabled: true,
       gateBudget: 12,
       gateTimeoutMs: 6000,
+      paceLoading: false,
       ...settings
     };
   }
@@ -690,7 +714,7 @@
     window.addEventListener("focus", onRefocus);
     markDirty();
     schedulePump();
-    log("v0.6 booted on", location.pathname, "— __lnfDiag() / __lnfDisable()");
+    log("v0.7 booted on", location.pathname, "— __lnfDiag() / __lnfDisable()");
   }
 
   if (document.readyState === "loading") {
