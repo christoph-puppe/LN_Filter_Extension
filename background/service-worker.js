@@ -16,10 +16,13 @@ function ensureTab(tabId) {
   return tabs.get(tabId);
 }
 
-function log(...args) {
-  // Easy to find in chrome://extensions service-worker DevTools.
-  console.log("[LN-Filter SW]", ...args);
-}
+// All three surface in chrome://extensions → LN Filter → "Inspect views:
+// service worker". Keep them prefixed so they're easy to filter.
+function log(...args)  { console.log("[LN-Filter SW]", ...args); }
+function warn(...args) { console.warn("[LN-Filter SW]", ...args); }
+function logErr(...args) { console.error("[LN-Filter SW]", ...args); }
+
+const short = s => (s || "").toString().replace(/\s+/g, " ").trim().slice(0, 40);
 
 async function processBatch(tabId) {
   const state = ensureTab(tabId);
@@ -32,6 +35,7 @@ async function processBatch(tabId) {
   try {
     const settings = await getSettings();
     if (!settings.apiKey) {
+      warn(`no Gemini API key set — ${state.pending.size} post(s) cannot be scored. Open Options and paste your key.`);
       // Reject all pending — UI shows a "set API key" hint.
       for (const { post } of state.pending.values()) {
         chrome.tabs.sendMessage(tabId, {
@@ -48,7 +52,7 @@ async function processBatch(tabId) {
     const batch = Array.from(state.pending.values());
     state.pending.clear();
 
-    log(`scoring ${batch.length} posts on tab ${tabId} with ${settings.model}`);
+    log(`▶ scoring ${batch.length} post(s) on tab ${tabId} — model=${settings.model} grounding=${!!settings.groundingEnabled} concurrency=${settings.concurrency || 4} thinking=${settings.thinkingLevel}`);
 
     const tasks = batch.map(({ post }) => async () => {
       const promptStr = buildPrompt(settings.prompt, settings, post);
@@ -61,6 +65,7 @@ async function processBatch(tabId) {
       // Cache check — saves API calls on re-renders of the same post.
       const cached = await readCached(cacheKey, settings.cacheTtlHours);
       if (cached) {
+        log(`  ⓒ cache  ${cached.score}  [${cached.category}]  ${short(post.author)}`);
         chrome.tabs.sendMessage(tabId, {
           type: "SCORE_RESULT",
           postId: post.id,
@@ -81,6 +86,7 @@ async function processBatch(tabId) {
           retries: settings.retries,
           grounding: !!settings.groundingEnabled
         });
+        log(`  ✓ score  ${result.score}  [${result.category}]  ${short(post.author)}`);
         await writeCached(cacheKey, {
           score: result.score,
           category: result.category,
@@ -96,17 +102,19 @@ async function processBatch(tabId) {
         }).catch(() => {});
         return { ok: true };
       } catch (e) {
+        const emsg = e.message || String(e);
+        logErr(`  ✗ FAIL   ${short(post.author)} :: ${emsg}`);
         chrome.tabs.sendMessage(tabId, {
           type: "SCORE_ERROR",
           postId: post.id,
-          error: e.message || String(e)
+          error: emsg
         }).catch(() => {});
-        return { error: e.message };
+        return { error: emsg };
       }
     });
 
     let done = 0;
-    await runPool(
+    const results = await runPool(
       tasks,
       Math.max(1, settings.concurrency || 4),
       d => {
@@ -120,7 +128,17 @@ async function processBatch(tabId) {
       state.cancelRef
     );
 
-    log(`tab ${tabId} batch done (${done}/${tasks.length})`);
+    // Tally for the batch summary line.
+    let scored = 0, cachedN = 0, failed = 0;
+    for (const r of results) {
+      const v = r && r.value;
+      if (r && r.error) failed++;
+      else if (v && v.error) failed++;
+      else if (v && v.cached) cachedN++;
+      else if (v && v.ok) scored++;
+    }
+    const summary = `■ batch done tab ${tabId}: ${scored} scored · ${cachedN} cached · ${failed} failed (${done}/${tasks.length})`;
+    if (failed > 0) warn(summary); else log(summary);
   } finally {
     state.running = false;
     // Drain any posts queued during the run.
@@ -137,11 +155,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "ENQUEUE_SCORE") {
     if (tabId == null) return;
     const state = ensureTab(tabId);
+    let added = 0;
     for (const post of msg.posts) {
       if (!state.pending.has(post.id)) {
         state.pending.set(post.id, { post });
+        added++;
       }
     }
+    log(`↧ enqueue tab ${tabId}: +${added} new (${msg.posts.length} received, ${state.pending.size} pending)`);
     processBatch(tabId);
     sendResponse({ queued: msg.posts.length, pending: state.pending.size });
     return true;
@@ -181,4 +202,8 @@ chrome.tabs.onRemoved.addListener(tabId => {
   }
 });
 
-log("service worker booted");
+log(`service worker booted (v${chrome.runtime.getManifest().version})`);
+getSettings().then(s => {
+  log(`config: model=${s.model} · key=${s.apiKey ? "set (…" + s.apiKey.slice(-4) + ")" : "MISSING"} · grounding=${!!s.groundingEnabled} · mode=${s.mode} · threshold=${s.threshold}`);
+  if (!s.apiKey) warn("No API key configured — scoring will not run until you set one in Options.");
+}).catch(e => logErr("could not read settings on boot:", e.message));

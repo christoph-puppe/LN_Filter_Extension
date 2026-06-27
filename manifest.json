@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LN Filter — LinkedIn Feed Re-Ranker",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Replaces the LinkedIn algorithm: rates posts with Gemini based on your preferences, sorts / hides / dims them.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": [

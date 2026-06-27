@@ -79,6 +79,23 @@
     return txt;
   }
 
+  // IntersectionObserver and CSS `order` both ignore display:contents elements
+  // (they generate no layout box). As of 2026 LinkedIn wraps each post in one or
+  // more display:contents <div>s and no longer ships the data-display-contents
+  // marker, so the old attribute check fell through to the contents wrapper —
+  // IO never fired, posts never got enqueued, nothing was ever scored.
+  // Descend to the first descendant that actually generates a box. With the
+  // outer wrappers display:contents, that inner box IS the participating flex
+  // item of mainFeed, so order-based sorting works on it too.
+  function resolveLayoutEl(wrapper) {
+    let node = wrapper;
+    for (let i = 0; i < 6 && node; i++) {
+      if (getComputedStyle(node).display !== "contents") return node;
+      node = node.firstElementChild;
+    }
+    return wrapper.firstElementChild || wrapper;
+  }
+
   // Find post wrappers as direct children of mainFeed that contain a text box.
   // Returns { wrapper, layoutEl } pairs.
   function findPostsInFeed(feed) {
@@ -86,10 +103,7 @@
     for (const child of feed.children) {
       const hasText = child.querySelector(TEXT_SELECTOR);
       if (!hasText) continue;
-      const layoutEl =
-        child.getAttribute("data-display-contents") === "true"
-          ? child.firstElementChild
-          : child;
+      const layoutEl = resolveLayoutEl(child);
       if (!layoutEl) continue;
       out.push({ wrapper: child, layoutEl });
     }
@@ -263,10 +277,11 @@
   // ----- enqueue -----
   function flushEnqueue(posts) {
     if (posts.length === 0) return;
+    log(`→ enqueue ${posts.length} post(s) for scoring`);
     chrome.runtime.sendMessage({
       type: "ENQUEUE_SCORE",
       posts: posts.map(rec => ({ id: rec.id, author: rec.author, text: rec.text }))
-    }).catch(() => {});
+    }).catch(e => log("enqueue sendMessage failed (service worker down?):", e?.message || e));
   }
 
   function enqueueVisible() {
