@@ -100,6 +100,9 @@ export async function scorePost({ apiKey, model, prompt, thinkingLevel, retries,
     try {
       return await callGeminiOnce({ apiKey, model, prompt, thinkingLevel, grounding });
     } catch (e) {
+      // Don't retry a rate-limit here — surface it immediately so the worker can
+      // pause the whole queue (cooldown) instead of hammering with more calls.
+      if (e.status === 429) throw e;
       attempt++;
       if (attempt > maxRetries) throw e;
       const wait = 500 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 200);

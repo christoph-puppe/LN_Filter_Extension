@@ -5,11 +5,21 @@ export async function getSettings() {
   return { ...DEFAULT_SETTINGS, ...(stored.settings || {}) };
 }
 
-export async function setSettings(patch) {
-  const current = await getSettings();
-  const next = { ...current, ...patch };
-  await chrome.storage.local.set({ settings: next });
-  return next;
+// Serialize writes so concurrent setSettings calls don't each read the same
+// stale snapshot and clobber one another (e.g. changing mode + threshold in
+// quick succession would otherwise revert one of the two). Each write waits for
+// the previous one to commit, then reads fresh.
+let _writeChain = Promise.resolve();
+export function setSettings(patch) {
+  const run = async () => {
+    const current = await getSettings();
+    const next = { ...current, ...patch };
+    await chrome.storage.local.set({ settings: next });
+    return next;
+  };
+  const result = _writeChain.then(run, run); // run regardless of prior outcome
+  _writeChain = result.catch(() => {});      // keep the chain alive on failure
+  return result;                             // caller still sees real result/errors
 }
 
 export async function resetSettings() {

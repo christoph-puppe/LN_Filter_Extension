@@ -101,10 +101,15 @@ export const DEFAULT_SETTINGS = {
   concurrency: 4,           // parallel Gemini calls
   thinkingLevel: "low",     // minimal | low | medium | high
   retries: 2,
-  bulkLookahead: 25,        // after visible items rated, pre-rate next N
+  bulkLookahead: 30,        // pre-score this many posts past the viewport (look-ahead)
   cacheTtlHours: 24,
   overlayEnabled: true,
-  groundingEnabled: false   // Google Search grounding for recency / fact checks
+  groundingEnabled: false,  // Google Search grounding for recency / fact checks
+  // v0.6 — rank-then-show + cascade control
+  gateBudget: 12,           // max posts held hidden-until-ranked at once (HIDE mode)
+  gateTimeoutMs: 6000,      // force-reveal a held post not ranked within this time
+  cooldownMs: 30000,        // global pause after a 429 rate-limit
+  maxScoresPerMin: 0        // optional soft cap on API calls per minute (0 = off)
 };
 
 export const SCORE_SCHEMA = {

@@ -46,6 +46,9 @@
 
 /* ---------- Hide / dim ---------- */
 .lnf-hidden { display: none !important; }
+/* Held until ranked (v0.6): hidden the instant a post is discovered in HIDE
+   mode, revealed once it has a score so it never flashes-then-collapses. */
+.lnf-gate { display: none !important; }
 .lnf-dimmed {
   opacity: 0.32;
   filter: grayscale(0.6);

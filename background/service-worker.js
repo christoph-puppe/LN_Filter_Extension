@@ -24,10 +24,42 @@ function logErr(...args) { console.error("[LN-Filter SW]", ...args); }
 
 const short = s => (s || "").toString().replace(/\s+/g, " ").trim().slice(0, 40);
 
+// ----- cascade control (v0.6) -----
+// Global, because rate limits apply to the API key, not a tab. On a 429 we pause
+// ALL scoring until cooldownUntil; un-processed posts are requeued and retried.
+let cooldownUntil = 0;
+// Sliding window of real (non-cached) API calls for the optional per-minute cap.
+let scoreTimes = [];
+function underRateCap(cap) {
+  if (!cap || cap <= 0) return true;
+  const cutoff = Date.now() - 60000;
+  scoreTimes = scoreTimes.filter(t => t > cutoff);
+  return scoreTimes.length < cap;
+}
+// Collapse a storm of identical errors (e.g. a dead model 404 on every post)
+// into a handful of log lines instead of thousands.
+const errSeen = new Map();
+function logErrThrottled(key, msg) {
+  const n = (errSeen.get(key) || 0) + 1;
+  errSeen.set(key, n);
+  if (n <= 3) logErr(msg);
+  else if (n % 25 === 0) logErr(`${msg}  (×${n})`);
+}
+
 async function processBatch(tabId) {
   const state = ensureTab(tabId);
   if (state.running) return;
   if (state.pending.size === 0) return;
+
+  // Cooldown gate: if we're paused after a 429, reschedule once and bail.
+  const waitMs = cooldownUntil - Date.now();
+  if (waitMs > 0) {
+    if (!state.cooldownScheduled) {
+      state.cooldownScheduled = true;
+      setTimeout(() => { state.cooldownScheduled = false; processBatch(tabId); }, waitMs + 50);
+    }
+    return;
+  }
 
   state.running = true;
   state.cancelRef.cancelled = false;
@@ -54,6 +86,8 @@ async function processBatch(tabId) {
 
     log(`▶ scoring ${batch.length} post(s) on tab ${tabId} — model=${settings.model} grounding=${!!settings.groundingEnabled} concurrency=${settings.concurrency || 4} thinking=${settings.thinkingLevel}`);
 
+    let rl429 = 0; // 429s seen this batch (triggers global cooldown + requeue)
+
     const tasks = batch.map(({ post }) => async () => {
       const promptStr = buildPrompt(settings.prompt, settings, post);
       // Cache key includes grounding flag — grounded vs ungrounded produce
@@ -77,7 +111,15 @@ async function processBatch(tabId) {
         return { cached: true };
       }
 
+      // Optional soft per-minute cap: defer (requeue) rather than call.
+      if (!underRateCap(settings.maxScoresPerMin)) {
+        state.cancelRef.cancelled = true;
+        if (cooldownUntil < Date.now()) cooldownUntil = Date.now() + 5000;
+        return { deferred: true };
+      }
+
       try {
+        scoreTimes.push(Date.now());
         const result = await scorePost({
           apiKey: settings.apiKey,
           model: settings.model,
@@ -103,7 +145,16 @@ async function processBatch(tabId) {
         return { ok: true };
       } catch (e) {
         const emsg = e.message || String(e);
-        logErr(`  ✗ FAIL   ${short(post.author)} :: ${emsg}`);
+        // 429 = rate limit. Don't log per-call: pause everything, requeue, retry.
+        if (e.status === 429) {
+          rl429++;
+          state.cancelRef.cancelled = true;
+          if (cooldownUntil < Date.now()) {
+            cooldownUntil = Date.now() + (settings.cooldownMs ?? 30000);
+          }
+          return { deferred: true };
+        }
+        logErrThrottled(emsg, `  ✗ FAIL   ${short(post.author)} :: ${emsg}`);
         chrome.tabs.sendMessage(tabId, {
           type: "SCORE_ERROR",
           postId: post.id,
@@ -128,17 +179,26 @@ async function processBatch(tabId) {
       state.cancelRef
     );
 
-    // Tally for the batch summary line.
-    let scored = 0, cachedN = 0, failed = 0;
-    for (const r of results) {
+    // Tally + requeue anything deferred (429 / rate cap) or cancelled mid-pool.
+    let scored = 0, cachedN = 0, failed = 0, requeued = 0;
+    for (let i = 0; i < batch.length; i++) {
+      const r = results[i];
       const v = r && r.value;
-      if (r && r.error) failed++;
-      else if (v && v.error) failed++;
-      else if (v && v.cached) cachedN++;
-      else if (v && v.ok) scored++;
+      const post = batch[i].post;
+      if (r && r.cancelled)          { state.pending.set(post.id, { post }); requeued++; }
+      else if (v && v.deferred)      { state.pending.set(post.id, { post }); requeued++; }
+      else if ((r && r.error) || (v && v.error)) failed++;
+      else if (v && v.cached)        cachedN++;
+      else if (v && v.ok)            scored++;
     }
-    const summary = `■ batch done tab ${tabId}: ${scored} scored · ${cachedN} cached · ${failed} failed (${done}/${tasks.length})`;
-    if (failed > 0) warn(summary); else log(summary);
+    const summary = `■ batch done tab ${tabId}: ${scored} scored · ${cachedN} cached · ${failed} failed${requeued ? ` · ${requeued} requeued` : ""} (${done}/${tasks.length})`;
+    if (failed > 0 || rl429 > 0) warn(summary); else log(summary);
+
+    if (rl429 > 0) {
+      const secs = Math.max(0, Math.round((cooldownUntil - Date.now()) / 1000));
+      warn(`⏸ rate-limited (429×${rl429}) — pausing ${secs}s, ${requeued} post(s) requeued`);
+      chrome.tabs.sendMessage(tabId, { type: "RATE_LIMITED", until: cooldownUntil }).catch(() => {});
+    }
   } finally {
     state.running = false;
     // Drain any posts queued during the run.

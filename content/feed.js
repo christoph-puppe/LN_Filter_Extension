@@ -1,13 +1,17 @@
-// Content script v0.3 — adapted to LinkedIn's hashed-class DOM (2026).
+// Content script v0.6 — rank-then-show on LinkedIn's hashed-class DOM (2026).
 //
 // Strategy:
 //   - Find the feed via [data-testid="mainFeed"] (stable marker).
-//   - Posts = direct children of mainFeed with [data-display-contents="true"]
-//     that contain an expandable-text-box. The wrapper has display:contents
-//     so we operate on wrapper.firstElementChild for layout, badge, order.
+//   - A post = direct child of mainFeed containing an expandable-text-box;
+//     resolveLayoutEl() descends past display:contents wrappers to the real box.
 //   - Author = first a[href*="/in/"] or a[href*="/company/"] inside the post.
-//   - ID = fnv1a hash of "author|first200charsOfText" (no data-urn anymore).
-//   - React-resilience: re-apply attributes every scanner tick (4 Hz).
+//   - ID = fnv1a hash of "author|first200charsOfText" (stable across re-renders).
+//   - React-resilience: re-apply attributes every scanner tick (4 Hz) + on mutation.
+//
+// v0.6: HIDE mode HOLDS unscored posts hidden (lnf-gate, display:none) until they
+// have a rank, so they never flash-then-collapse. Scoring is driven by DOM
+// position (pumpQueue), not visibility, because gated posts never intersect.
+// Bounded by gateBudget + gateTimeoutMs; the worker handles 429 backoff.
 //
 // Panic switches: window.__lnfDisable(), diagnostics: window.__lnfDiag().
 
@@ -31,8 +35,6 @@
   const state = {
     settings: null,
     posts: new Map(),          // postId -> { wrapper, layoutEl, ... }
-    visibleQueue: new Set(),
-    lookaheadTimer: null,
     feedContainer: null,
     dirty: false,
     scanInterval: null,
@@ -119,10 +121,31 @@
     return out;
   }
 
+  // ----- reveal gating (v0.6 hold-until-ranked) -----
+  // In HIDE mode, hold an unscored post hidden (display:none) until it has a
+  // rank, so it never flashes-then-collapses in view. Bounded by gateBudget
+  // (don't shrink the column without limit → the load cascade) and gateTimeoutMs
+  // (never trap content behind a stalled queue). Fail-open everywhere.
+  const gatedSet = new Set(); // rec.id currently held
+
+  function decideGate(rec) {
+    const budget  = state.settings?.gateBudget ?? 12;
+    const timeout = state.settings?.gateTimeoutMs ?? 6000;
+    const now = Date.now();
+    if (rec.gateStart === -1) return false;          // timed out earlier → stay revealed
+    if (rec.gateStart == null) {
+      if (gatedSet.size >= budget) return false;     // budget full → show ungated
+      rec.gateStart = now;
+      return true;
+    }
+    if (now - rec.gateStart > timeout) { rec.gateStart = -1; return false; } // fail-open
+    return true;
+  }
+
   // ----- score → DOM -----
   function applyMode(rec) {
     const el = rec.layoutEl;
-    if (!el || !el.isConnected) return;
+    if (!el || !el.isConnected) { gatedSet.delete(rec.id); return; }
     const mode = state.settings?.mode || "off";
     const threshold = state.settings?.threshold ?? 45;
     const sortByScore = state.settings?.sortByScore !== false;
@@ -130,10 +153,12 @@
     // Always re-set class (React may strip)
     if (!el.classList.contains("lnf-post")) el.classList.add("lnf-post");
 
-    el.classList.remove("lnf-hidden", "lnf-dimmed");
+    el.classList.remove("lnf-hidden", "lnf-dimmed", "lnf-gate");
     el.style.removeProperty("order");
 
+    let gated = false;
     if (rec.error) {
+      // fail-open: reveal posts we couldn't score (never trap content)
       el.setAttribute("data-lnf-score", "ERR");
       el.setAttribute("data-lnf-state", "error");
       el.setAttribute("title", rec.error);
@@ -150,14 +175,55 @@
         else if (mode === "dim") el.classList.add("lnf-dimmed");
       }
     } else {
+      // pending — in HIDE mode hold it until ranked rather than flashing "…"
       el.setAttribute("data-lnf-score", "…");
-      el.setAttribute("data-lnf-state", "pending");
+      if (mode === "hide" && decideGate(rec)) {
+        gated = true;
+        el.classList.add("lnf-gate");
+        el.setAttribute("data-lnf-state", "gated");
+      } else {
+        el.setAttribute("data-lnf-state", "pending");
+      }
     }
+    if (gated) gatedSet.add(rec.id); else gatedSet.delete(rec.id);
   }
 
   function applyAll() {
     for (const rec of state.posts.values()) applyMode(rec);
   }
+
+  // ----- batched apply -----
+  // Scores arrive asynchronously; applying each one in its own synchronous pass
+  // caused redundant reflows. Coalesce all updates that land in the same frame
+  // into a single pass via requestAnimationFrame. We deliberately do NOT touch
+  // the scroll position here — manually correcting scrollTop fought LinkedIn's
+  // own infinite-scroll handler and produced an error storm (v0.5.2). Native
+  // browser scroll anchoring handles viewport stability on its own.
+  let applyRaf = 0;
+  let applyAllReq = false;
+  const dirtyRecs = new Set();
+
+  function flushApply() {
+    applyRaf = 0;
+    try {
+      if (applyAllReq) {
+        applyAllReq = false;
+        dirtyRecs.clear();
+        applyAll();
+      } else {
+        for (const rec of dirtyRecs) applyMode(rec);
+        dirtyRecs.clear();
+      }
+    } catch (e) {
+      state.lastError = "flushApply: " + (e.message || String(e));
+    }
+  }
+
+  function schedule() {
+    if (!applyRaf) applyRaf = requestAnimationFrame(flushApply);
+  }
+  function scheduleApply(rec) { if (rec) dirtyRecs.add(rec); schedule(); }
+  function scheduleApplyAll() { applyAllReq = true; schedule(); }
 
   // ----- registration -----
   function registerPost({ wrapper, layoutEl }) {
@@ -176,7 +242,16 @@
       if (rec) {
         state.counters.registerDup++;
         rec.wrapper = wrapper;
-        rec.layoutEl = layoutEl;
+        if (rec.layoutEl !== layoutEl) {
+          // React swapped this post's box for a fresh node. Move our tracking
+          // over: re-tag it and re-point the IntersectionObserver — otherwise the
+          // observer keeps watching the detached old node and the post never
+          // enqueues for scoring (stuck at "…" until a manual Re-rate).
+          try { intersection.unobserve(rec.layoutEl); } catch (e) {}
+          rec.layoutEl = layoutEl;
+          try { layoutEl.setAttribute("data-lnf-id", id); } catch (e) { state.lastError = "setAttr(dup): " + e.message; }
+          try { intersection.observe(layoutEl); } catch (e) { state.counters.observeThrew++; state.lastError = "observe(dup): " + e.message; }
+        }
         try { applyMode(rec); } catch (e) { state.counters.applyThrew++; state.lastError = "applyMode(dup): " + e.message; }
         return rec;
       }
@@ -234,6 +309,7 @@
         }
       }
       updateOverlayStatus();
+      schedulePump();
       return found;
     } catch (e) {
       state.lastError = "scan: " + (e.message || String(e));
@@ -253,28 +329,46 @@
   }
 
   // ----- observers -----
-  let mutation = new MutationObserver(() => markDirty());
+  // Coalesce mutation bursts into a single scan on the next frame — fast enough
+  // to gate a freshly-inserted post before it paints, without scanning per-mutation.
+  let scanRaf = 0;
+  function requestScan() {
+    state.dirty = true;
+    if (scanRaf) return;
+    scanRaf = requestAnimationFrame(() => {
+      scanRaf = 0;
+      if (state.dirty) { state.dirty = false; scan(); }
+    });
+  }
+
+  let mutation = new MutationObserver(requestScan);
 
   function rerootObserver() {
     mutation.disconnect();
-    mutation = new MutationObserver(() => markDirty());
+    mutation = new MutationObserver(requestScan);
     mutation.observe(state.feedContainer, { childList: true, subtree: true });
   }
 
-  const intersection = new IntersectionObserver(entries => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        const id = entry.target.getAttribute("data-lnf-id");
-        if (id) state.visibleQueue.add(id);
-      }
-    }
-    if (state.visibleQueue.size > 0) {
-      clearTimeout(intersection._timer);
-      intersection._timer = setTimeout(enqueueVisible, 300);
-    }
-  }, { rootMargin: "200px 0px" });
+  // The IntersectionObserver is now only a scroll/visibility *signal*. Gated posts
+  // are display:none and never intersect, so the actual enqueueing is driven by
+  // DOM position in pumpQueue(), not by visibility.
+  const intersection = new IntersectionObserver(() => schedulePump(), { rootMargin: "300px 0px" });
 
-  // ----- enqueue -----
+  // ----- enqueue (position-based, v0.6) -----
+  // Score by DOM position, not CSS visibility: every unscored post from the top
+  // of the feed through `lookahead` posts past the viewport, plus any gated post
+  // (which needs a score to ever un-gate).
+  function orderedConnectedPosts() {
+    return Array.from(state.posts.values())
+      .filter(r => r.layoutEl && r.layoutEl.isConnected)
+      .sort((a, b) =>
+        (a.layoutEl.compareDocumentPosition(b.layoutEl) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
+  }
+
+  function needsScore(rec) {
+    return !rec.enqueued && typeof rec.score !== "number" && !rec.error;
+  }
+
   function flushEnqueue(posts) {
     if (posts.length === 0) return;
     log(`→ enqueue ${posts.length} post(s) for scoring`);
@@ -284,43 +378,36 @@
     }).catch(e => log("enqueue sendMessage failed (service worker down?):", e?.message || e));
   }
 
-  function enqueueVisible() {
+  function pumpQueue() {
+    if (state.disabled) return;
+    const lookahead = Math.max(0, state.settings?.bulkLookahead ?? 30);
+    const ordered = orderedConnectedPosts();
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    // Frontier = lowest *non-gated* post within the viewport + margin. Gated
+    // posts are display:none (rect top = 0) so they can't anchor position.
+    let frontier = 0;
+    ordered.forEach((r, i) => {
+      if (r.layoutEl.classList.contains("lnf-gate")) return;
+      if (r.layoutEl.getBoundingClientRect().top < vh + 300) frontier = i;
+    });
+    const limit = Math.min(ordered.length - 1, frontier + lookahead);
     const toSend = [];
-    for (const id of state.visibleQueue) {
-      const rec = state.posts.get(id);
-      if (rec && !rec.enqueued && typeof rec.score !== "number") {
-        rec.enqueued = true;
-        toSend.push(rec);
+    for (let i = 0; i <= limit; i++) {
+      if (needsScore(ordered[i])) { ordered[i].enqueued = true; toSend.push(ordered[i]); }
+    }
+    // Gated posts must be scored to ever un-gate, regardless of the window.
+    for (const rec of state.posts.values()) {
+      if (rec.layoutEl && rec.layoutEl.classList.contains("lnf-gate") && needsScore(rec)) {
+        rec.enqueued = true; toSend.push(rec);
       }
     }
-    state.visibleQueue.clear();
     flushEnqueue(toSend);
-    if (state.lookaheadTimer) clearTimeout(state.lookaheadTimer);
-    state.lookaheadTimer = setTimeout(enqueueLookahead, 800);
   }
 
-  function enqueueLookahead() {
-    const lookahead = state.settings?.bulkLookahead ?? 25;
-    if (lookahead <= 0) return;
-    const ordered = Array.from(state.posts.values())
-      .filter(r => r.layoutEl && r.layoutEl.isConnected)
-      .sort((a, b) => {
-        const pos = a.layoutEl.compareDocumentPosition(b.layoutEl);
-        return pos & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
-      });
-    let lastRated = -1;
-    ordered.forEach((r, i) => {
-      if (typeof r.score === "number" || r.enqueued) lastRated = i;
-    });
-    const toSend = [];
-    for (let i = lastRated + 1; i < ordered.length && toSend.length < lookahead; i++) {
-      const rec = ordered[i];
-      if (!rec.enqueued && typeof rec.score !== "number") {
-        rec.enqueued = true;
-        toSend.push(rec);
-      }
-    }
-    flushEnqueue(toSend);
+  let pumpTimer = null;
+  function schedulePump() {
+    if (pumpTimer) return;
+    pumpTimer = setTimeout(() => { pumpTimer = null; pumpQueue(); }, 200);
   }
 
   // ----- inbound messages -----
@@ -339,15 +426,10 @@
       for (const rec of state.posts.values()) {
         rec.score = rec.category = rec.reason = rec.error = undefined;
         rec.enqueued = false;
+        rec.gateStart = undefined;   // allow re-gating on re-rate
         applyMode(rec);
       }
-      state.posts.forEach(rec => {
-        if (rec.layoutEl && rec.layoutEl.isConnected) {
-          const r = rec.layoutEl.getBoundingClientRect();
-          if (r.bottom > 0 && r.top < window.innerHeight) state.visibleQueue.add(rec.id);
-        }
-      });
-      enqueueVisible();
+      pumpQueue();
       sendResponse({ ok: true });
       return true;
     }
@@ -358,14 +440,18 @@
       rec.category = msg.category;
       rec.reason = msg.reason;
       rec.error = undefined;
-      applyMode(rec);
+      scheduleApply(rec);
       updateOverlayStatus();
     } else if (msg.type === "SCORE_ERROR") {
       const rec = state.posts.get(msg.postId);
       if (!rec) return;
       rec.error = msg.error;
       rec.enqueued = false;
-      applyMode(rec);
+      scheduleApply(rec);
+      updateOverlayStatus();
+    } else if (msg.type === "RATE_LIMITED") {
+      // SW paused on a 429; posts are requeued there and retry after cooldown.
+      state.rateLimitedUntil = msg.until || 0;
       updateOverlayStatus();
     }
   });
@@ -428,15 +514,10 @@
       for (const rec of state.posts.values()) {
         rec.score = rec.category = rec.reason = rec.error = undefined;
         rec.enqueued = false;
+        rec.gateStart = undefined;
         applyMode(rec);
       }
-      state.posts.forEach(rec => {
-        if (rec.layoutEl && rec.layoutEl.isConnected) {
-          const r = rec.layoutEl.getBoundingClientRect();
-          if (r.bottom > 0 && r.top < window.innerHeight) state.visibleQueue.add(rec.id);
-        }
-      });
-      enqueueVisible();
+      pumpQueue();
     });
     overlayEl.querySelector(".lnf-options").addEventListener("click", () =>
       chrome.runtime.sendMessage({ type: "OPEN_OPTIONS" }).catch(() => {}));
@@ -460,18 +541,24 @@
       else if (typeof rec.score === "number") rated++;
       else pending++;
     }
+    const held = gatedSet.size;
     overlayEl.querySelector(".lnf-stat-rated").textContent = `${rated} rated`;
-    overlayEl.querySelector(".lnf-stat-pending").textContent =
-      errors > 0 ? `${pending} pending · ${errors} ERR` : `${pending} pending`;
+    let right = held > 0 ? `${held} held · ${pending} pending` : `${pending} pending`;
+    if (errors > 0) right += ` · ${errors} ERR`;
+    overlayEl.querySelector(".lnf-stat-pending").textContent = right;
   }
 
+  // Base the write on our in-memory settings (kept current via storage.onChanged),
+  // NOT a fresh storage read. Two rapid saveSetting calls — e.g. switch to Hide,
+  // then nudge the threshold — would otherwise both read the same pre-change
+  // snapshot, and the second write would clobber the first, silently reverting
+  // the mode back to its previous value ("hide turns itself off").
   async function saveSetting(patch) {
-    const { settings = {} } = await chrome.storage.local.get("settings");
-    const next = { ...settings, ...patch };
-    await chrome.storage.local.set({ settings: next });
     state.settings = { ...state.settings, ...patch };
+    const snapshot = state.settings;
     refreshOverlayFromSettings();
-    applyAll();
+    scheduleApplyAll();
+    await chrome.storage.local.set({ settings: snapshot });
   }
 
   // ----- panic / diag -----
@@ -480,7 +567,7 @@
     mutation.disconnect();
     if (state.scanInterval) { clearInterval(state.scanInterval); state.scanInterval = null; }
     document.querySelectorAll(".lnf-post").forEach(el => {
-      el.classList.remove("lnf-post", "lnf-hidden", "lnf-dimmed");
+      el.classList.remove("lnf-post", "lnf-hidden", "lnf-dimmed", "lnf-gate");
       el.style.removeProperty("order");
       el.removeAttribute("data-lnf-id");
       el.removeAttribute("data-lnf-score");
@@ -517,6 +604,10 @@
         c.querySelector(TEXT_SELECTOR)).length : 0,
       textBoxes: document.querySelectorAll(TEXT_SELECTOR).length,
       tracked: state.posts.size,
+      gated: gatedSet.size,
+      filtered: Array.from(state.posts.values()).filter(r =>
+        r.layoutEl?.classList.contains("lnf-hidden")).length,
+      rateLimitedUntil: state.rateLimitedUntil || 0,
       counters: state.counters,
       lastError: state.lastError,
       sampleTracked: Array.from(state.posts.values()).slice(0, 3).map(r => ({
@@ -561,8 +652,10 @@
       mode: "dim",
       threshold: 45,
       sortByScore: true,
-      bulkLookahead: 25,
+      bulkLookahead: 30,
       overlayEnabled: true,
+      gateBudget: 12,
+      gateTimeoutMs: 6000,
       ...settings
     };
   }
@@ -571,8 +664,20 @@
     if (area !== "local" || !changes.settings) return;
     state.settings = { ...state.settings, ...changes.settings.newValue };
     refreshOverlayFromSettings();
-    applyAll();
+    scheduleApplyAll();
   });
+
+  // Scrolling alone doesn't mutate the DOM, so the mutation observer won't fire —
+  // drive the position-based queue off scroll directly (capture phase catches the
+  // inner <main> scroller, whose scroll events don't bubble to window).
+  function onScroll() { schedulePump(); }
+
+  // Reload resilience: LinkedIn auto-refreshes the feed on tab re-focus and on its
+  // own idle timer. Force a re-scan + re-apply the moment we become visible so the
+  // re-rank snaps back (scores come from the SW cache → no new API calls).
+  function onRefocus() {
+    if (document.visibilityState !== "hidden") { requestScan(); schedulePump(); }
+  }
 
   async function boot() {
     await loadSettings();
@@ -580,8 +685,12 @@
     scan();
     mutation.observe(document.body, { childList: true, subtree: true });
     startScanner();
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    document.addEventListener("visibilitychange", onRefocus);
+    window.addEventListener("focus", onRefocus);
     markDirty();
-    log("v0.3 booted on", location.pathname, "— __lnfDiag() / __lnfDisable()");
+    schedulePump();
+    log("v0.6 booted on", location.pathname, "— __lnfDiag() / __lnfDisable()");
   }
 
   if (document.readyState === "loading") {
