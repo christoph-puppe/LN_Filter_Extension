@@ -1,3 +1,39 @@
+## ⚠️ Terms of Service & Risk Notice
+
+**Read this before installing.**
+
+LN Filter modifies LinkedIn's feed entirely on the client side — it reads posts
+from the page you're already viewing, scores them via the Gemini API using your
+own key, and then hides, dims, or re-orders them in your browser.
+
+This is useful. It is also **not permitted under LinkedIn's User Agreement.**
+LinkedIn's [prohibited-software guidance](https://www.linkedin.com/help/linkedin/answer/a1341387)
+explicitly disallows browser extensions that *scrape, modify the appearance of,
+or automate activity on* the site — and LN Filter does each of those by design.
+Sending post content to a third-party API (Gemini) also touches the User
+Agreement's restriction on copying or distributing data obtained from the
+Services through third parties.
+
+**What this means in practice:**
+- This is a contractual (ToS) matter, not a criminal one. Personal client-side
+  re-ranking is a different universe from commercial scraping — but the rule
+  LinkedIn wrote covers it anyway.
+- The realistic risk is **account-side enforcement**: LinkedIn may restrict your
+  account and ask you to disable the extension. Their detection is pattern-based.
+- Local processing and using your own API key are good for *your* privacy, but
+  they do **not** make the activity compliant. Neither does scroll pacing.
+- Post content you view is sent to Google's Gemini API for scoring. Be mindful of
+  what that means for other people's posts, not just your own.
+
+**Use at your own risk.** By installing LN Filter you accept that you, not the
+authors, are responsible for any consequences to your LinkedIn account. This
+project is provided as-is, for personal and educational use, with no warranty.
+
+> There is no fully ToS-compliant way to build feed re-ranking on LinkedIn:
+> their official API does not expose the feed. That tension is inherent to the
+> idea, and this notice exists so you can make an informed choice.
+
+
 # LN Filter — LinkedIn Feed Re-Ranker
 
 A Chrome extension that replaces your LinkedIn feed algorithm: rates every post with **Gemini Flash** based on your own criteria and re-sorts / filters / dims accordingly. Fully local, no backend.
